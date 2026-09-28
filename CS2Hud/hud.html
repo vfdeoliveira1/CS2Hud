@@ -124,7 +124,7 @@
 
   /* jogador com a bomba na mão: o próprio ponto dele fica vermelho, mas
       continua mostrando o número. */
-  .dot.bombCarrier{background:var(--bad);border-color:#fff;color:#fff}
+  .dot.bombCarrier{background:#E0201B;border-color:#fff;color:#fff}
     .dot.bombCarrier .dotIcon{display:none}
 
   /* marcador da bomba largada/plantada: SEM círculo de fundo, só o ícone
@@ -232,7 +232,8 @@
   // CONFIGURAÇÃO
   // =====================================================================
   var API_URL = 'http://localhost:5000/api/hud';
-  var POLL_MS = 100; // busca local é barata; quem garante fluidez visual é o requestAnimationFrame do radar, não isso aqui
+  var POLL_MS = 33; // ~30x/s: pega cada pacote novo do CS2 logo que chega (a fluidez em si vem do requestAnimationFrame do radar)
+  var SAME_STATE_RENDER_MS = 200; // se o JSON não mudou, re-renderiza no máximo a cada 200ms (só pros timers estimados andarem)
   var ICONS_PATH = './icons/';
   var MAPS_PATH = './icons/maps/'; // imagens de radar dos mapas (você fornece)
   // Tempo padrão da bomba em partidas competitivas de CS2. Se você jogar
@@ -419,8 +420,12 @@
   var hudIndexOwner = {}; // index -> steamId
   var lastNick = {};      // steamId -> nick (pra continuar rotulando mesmo se ele sumir momentaneamente)
   var lastTeam = {};      // steamId -> 'CT'/'T'
+  var lastPlayerData = {}; // steamId -> último objeto de jogador recebido (pra manter o card se ele sumir da lista)
 
-  function assignHudIndex(p){
+  // present: steamIds que vieram no poll atual. Se o time estiver cheio,
+  // um slot cujo dono NÃO veio neste poll pode ser reaproveitado (ex:
+  // jogador desconectou e outro entrou no lugar).
+  function assignHudIndex(p, present){
     var idx = hudIndexMap[p.steamId];
     var inRange = idx !== undefined &&
       ((p.team === 'CT' && idx >= 0 && idx <= 4) || (p.team === 'T' && idx >= 5 && idx <= 9));
@@ -437,6 +442,15 @@
         hudIndexOwner[i] = p.steamId;
         return i;
       }
+    }
+    for(var j = start; j < start + 5; j++){
+      var owner = hudIndexOwner[j];
+      if(present[owner]) continue;
+      delete hudIndexMap[owner];
+      delete lastPlayerData[owner];
+      hudIndexMap[p.steamId] = j;
+      hudIndexOwner[j] = p.steamId;
+      return j;
     }
     return undefined; // mais de 5 no time (não deveria acontecer em 5x5) - ignora
   }
@@ -552,7 +566,37 @@
   //     do monitor (60fps, 144fps, o que for) e vai suavizando o ponto
   //     em direção ao alvo a cada frame, em vez de teleportar.
   // Isso é a mesma ideia de interpolação usada em jogos multiplayer.
-  var LERP_FACTOR = 0.28; // 0-1: quão rápido o ponto "alcança" o alvo por frame (maior = mais responsivo, menor = mais suave)
+  // Suavização do radar: o CS2 só manda posição algumas vezes por segundo
+  // (buffer/throttle do GSI), então em vez de "correr atrás" do alvo (que
+  // anda aos trancos a cada pacote), interpolamos com velocidade constante
+  // entre a posição anterior e a nova, ao longo do intervalo médio real
+  // entre pacotes. Isso atrasa o ponto em ~1 pacote, mas o movimento fica
+  // contínuo no refresh rate do navegador (60fps).
+  var INTERP_MIN_MS = 30;    // limites do intervalo estimado entre pacotes
+  var INTERP_MAX_MS = 400;
+  var INTERP_STRETCH = 1.15; // anima um pouco mais devagar que o intervalo real, pra não "parar" quando um pacote atrasa
+  var SNAP_DISTANCE_PCT = 20; // salto maior que isso (respawn, troca de lado) = teleporta, sem animar
+
+  function setSlotTarget(slot, x, y){
+    if(x === slot.tgtX && y === slot.tgtY) return; // mesmo pacote de antes, nada novo
+    var now = performance.now();
+    if(slot.lastUpdateAt){
+      var dt = now - slot.lastUpdateAt;
+      if(dt < 1000) slot.interval = slot.interval * 0.7 + Math.min(INTERP_MAX_MS, Math.max(INTERP_MIN_MS, dt)) * 0.3;
+    }
+    var far = Math.abs(x - slot.curX) > SNAP_DISTANCE_PCT || Math.abs(y - slot.curY) > SNAP_DISTANCE_PCT;
+    if(!slot.visible || far){
+      slot.fromX = slot.curX = x;
+      slot.fromY = slot.curY = y;
+    } else {
+      // parte de onde o ponto está desenhado AGORA (sem pulo)
+      slot.fromX = slot.curX;
+      slot.fromY = slot.curY;
+    }
+    slot.tgtX = x;
+    slot.tgtY = y;
+    slot.lastUpdateAt = now;
+  }
 
   function worldToRadarPct(x, y, mapName){
     var cal = RADAR_CAL[mapName];
@@ -587,7 +631,8 @@
       el.appendChild(icon);
 
       box.appendChild(el);
-      radarSlots.push({ el: el, numEl: num, iconEl: icon, curX: 50, curY: 50, tgtX: 50, tgtY: 50, active: false });
+      radarSlots.push({ el: el, numEl: num, iconEl: icon, curX: 50, curY: 50, tgtX: 50, tgtY: 50, fromX: 50, fromY: 50,
+        lastUpdateAt: 0, interval: 100, visible: false, active: false });
     }
   })();
 
@@ -628,7 +673,18 @@
     }
 
     var bState = ((bomb && bomb.state) || '').toLowerCase();
-    var bombCarrierSteamId = (bState === 'carried') ? (bomb && bomb.player) : null;
+    // O node "bomb" do exportador não informa QUEM está com ela, então
+    // descobrimos o portador pelo inventário: quem tem a weapon_c4 nas
+    // utilitárias (ou na mão). Só existe uma C4, então no máximo um jogador.
+    var BOMB_FREE_STATES = ['dropped', 'planting', 'planted', 'defusing', 'exploded', 'defused'];
+    var bombCarrierSteamId = null;
+    if(BOMB_FREE_STATES.indexOf(bState) === -1){
+      players.forEach(function(p){
+        if(bombCarrierSteamId !== null || p.isDead) return;
+        var hasC4 = p.activeWeapon === 'weapon_c4' || (p.utility || []).indexOf('weapon_c4') !== -1;
+        if(hasC4) bombCarrierSteamId = p.steamId;
+      });
+    }
 
     // marca todo mundo inativo antes, e só reativa quem tem posição válida
     // agora (assim, quem desconectou de vez some do radar)
@@ -654,8 +710,7 @@
       if(!pos || pos.xPct < 0 || pos.xPct > 100 || pos.yPct < 0 || pos.yPct > 100){ slot.active = false; return; }
 
       slot.active = true;
-      slot.tgtX = pos.xPct;
-      slot.tgtY = pos.yPct;
+      setSlotTarget(slot, pos.xPct, pos.yPct);
 
       if(p.isDead){
         // "X" translúcido na cor do time, no lugar onde ele morreu
@@ -688,8 +743,7 @@
         var fallbackPos = worldToRadarPct(lastKnownPos[ownerSteamId].x, lastKnownPos[ownerSteamId].y, mapName);
         if(fallbackPos && fallbackPos.xPct >= 0 && fallbackPos.xPct <= 100 && fallbackPos.yPct >= 0 && fallbackPos.yPct <= 100){
           s.active = true;
-          s.tgtX = fallbackPos.xPct;
-          s.tgtY = fallbackPos.yPct;
+          setSlotTarget(s, fallbackPos.xPct, fallbackPos.yPct);
           var team = lastTeam[ownerSteamId] || 'CT';
           s.el.className = 'dot dead ' + (team === 'CT' ? 'ct' : 'tr');
           s.el.title = (lastNick[ownerSteamId] || '?') + ' (morto)';
@@ -715,8 +769,7 @@
       var bpos = worldToRadarPct(bPos.x, bPos.y, mapName);
       if(bpos && bpos.xPct >= 0 && bpos.xPct <= 100 && bpos.yPct >= 0 && bpos.yPct <= 100){
         bombSlot.active = true;
-        bombSlot.tgtX = bpos.xPct;
-        bombSlot.tgtY = bpos.yPct;
+        setSlotTarget(bombSlot, bpos.xPct, bpos.yPct);
         var isPlanted = bState === 'planted' || bState === 'defusing';
         bombSlot.el.className = 'dot bomb' + (isPlanted ? ' planted' : '');
         bombSlot.el.title = 'Bomba: ' + bState + (isPlanted ? ' (local exato)' : '');
@@ -733,18 +786,29 @@
 
   // Loop de desenho, independente da rede - roda no refresh rate do
   // navegador (tipicamente 60fps). Só aqui a gente toca em style.left/top.
-  function radarAnimLoop(){
+  function radarAnimLoop(now){
     for(var i = 0; i < radarSlots.length; i++){
       var s = radarSlots[i];
       if(!s.active){
-        if(s.el.style.display !== 'none') s.el.style.display = 'none';
+        if(s.visible){ s.el.style.display = 'none'; s.visible = false; }
         continue;
       }
-      s.el.style.display = 'flex';
-      s.curX += (s.tgtX - s.curX) * LERP_FACTOR;
-      s.curY += (s.tgtY - s.curY) * LERP_FACTOR;
-      s.el.style.left = s.curX + '%';
-      s.el.style.top = s.curY + '%';
+      if(!s.visible){
+        // reapareceu: começa direto no alvo, sem deslizar de onde sumiu
+        s.fromX = s.curX = s.tgtX;
+        s.fromY = s.curY = s.tgtY;
+        s.el.style.display = 'flex';
+        s.visible = true;
+      }
+      var t = (now - s.lastUpdateAt) / (s.interval * INTERP_STRETCH);
+      if(t > 1) t = 1; else if(t < 0) t = 0;
+      var x = s.fromX + (s.tgtX - s.fromX) * t;
+      var y = s.fromY + (s.tgtY - s.fromY) * t;
+      if(x !== s.curX || y !== s.curY){
+        s.curX = x; s.curY = y;
+        s.el.style.left = x + '%';
+        s.el.style.top = y + '%';
+      }
     }
     requestAnimationFrame(radarAnimLoop);
   }
@@ -818,6 +882,16 @@
     }
     lastRoundPhase = phase;
 
+    // Time "inválido" (Undefined/Spectator) que às vezes aparece logo após
+    // a morte: mantém o último time conhecido, senão o jogador perdia o
+    // slot e o card virava "— vazio —".
+    var present = {};
+    players.forEach(function(p){
+      if(p.team !== 'CT' && p.team !== 'T' && lastTeam[p.steamId]) p.team = lastTeam[p.steamId];
+      present[p.steamId] = true;
+    });
+    players = players.filter(function(p){ return p.team === 'CT' || p.team === 'T'; });
+
     players.forEach(function(p){
       // durante o warmup os jogadores podem reportar vida 0 momentaneamente
       // antes de spawnar de verdade - ignora pra não marcar todo mundo
@@ -828,8 +902,9 @@
       lastNick[p.steamId] = p.nick;
       lastTeam[p.steamId] = p.team;
 
-      var idx = assignHudIndex(p);
+      var idx = assignHudIndex(p, present);
       if(typeof idx === 'number') p.hudIndex = idx;
+      lastPlayerData[p.steamId] = p;
 
       // se a arma ativa agora é uma "arma de verdade" (não utilitária/faca/
       // c4), grava como a última segurada. Senão, mostra essa última
@@ -841,6 +916,22 @@
         p.displayWeapon = lastGunWeapon[p.steamId] || p.activeWeapon;
       }
     });
+
+    // Jogador que tem slot mas sumiu da lista deste poll (comum alguns
+    // segundos depois de morrer): continua mostrando o card com os
+    // últimos dados conhecidos, em vez de "— vazio —".
+    for(var slotIdx = 0; slotIdx < 10; slotIdx++){
+      var ownerId = hudIndexOwner[slotIdx];
+      if(ownerId === undefined || present[ownerId]) continue;
+      var cached = lastPlayerData[ownerId];
+      if(!cached) continue;
+      var ghost = {};
+      for(var k in cached) ghost[k] = cached[k];
+      ghost.hudIndex = slotIdx;
+      ghost.isDead = !!deadThisRound[ownerId];
+      ghost.position = null; // radar usa lastKnownPos pra morto; vivo sem posição some
+      players.push(ghost);
+    }
 
     var ctPlayers = players.filter(function(p){ return p.team === 'CT' && typeof p.hudIndex === 'number'; });
     var tPlayers  = players.filter(function(p){ return p.team === 'T' && typeof p.hudIndex === 'number'; });
@@ -880,6 +971,7 @@
 
     // morte persistente
     lastDeathResetKey = null; deadThisRound = {}; lastKnownPos = {};
+    lastPlayerData = {};
 
     // cards -> volta pros 5 slots "vazio" de cada lado
     renderRoster($('rosterCT'), [], 'ct', 0);
@@ -902,14 +994,29 @@
   var emptyCount = 0;
   var needsReset = false; // true enquanto estamos "sem partida ativa"
 
+  var pollInFlight = false;
+  var lastStateText = null;
+  var lastRenderAt = 0;
+
   function poll(){
+    if(pollInFlight) return; // não empilha requisições se uma demorar
+    pollInFlight = true;
     fetch(API_URL, { cache: 'no-store' })
       .then(function(res){
         if(res.status === 204){ failCount = 0; $('connWarn').style.display = 'none'; return null; }
         if(!res.ok) throw new Error('HTTP ' + res.status);
-        return res.json();
+        return res.text();
       })
-      .then(function(state){
+      .then(function(text){
+        pollInFlight = false;
+        var now = performance.now();
+        // Mesmo conteúdo do último poll: não reconstrói cards/radar à toa
+        // (com POLL_MS baixo, a maioria das respostas é repetida).
+        if(text !== null && text === lastStateText && now - lastRenderAt < SAME_STATE_RENDER_MS) return;
+        lastStateText = text;
+        lastRenderAt = now;
+        var state = text ? JSON.parse(text) : null;
+
         failCount = 0;
         $('connWarn').style.display = 'none';
 
@@ -921,7 +1028,7 @@
           // seguidas (evita "piscar" por causa de 1 poll perdido à toa),
           // reseta o HUD inteiro.
           emptyCount++;
-          if(emptyCount >= 5 && !needsReset){
+          if(emptyCount >= 15 && !needsReset){ // ~0.5s com POLL_MS=33
             needsReset = true;
             resetVisuals();
           }
@@ -933,8 +1040,9 @@
         render(state);
       })
       .catch(function(){
+        pollInFlight = false;
         failCount++;
-        if(failCount >= 3) $('connWarn').style.display = 'block';
+        if(failCount >= 10) $('connWarn').style.display = 'block';
       });
   }
 
