@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>CS2 HUD 5x5 — tempo real</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:      rgba(9,13,18,.90);
+    --bg-soft: rgba(9,13,18,.72);
+    --ct:      #6E9EDA;
+    --tr:      #D9A441;
+    --bone:    #EDEFF2;
+    --steel:   #78848F;
+    --line:    rgba(237,239,242,.13);
+    --good:    #6FCF97;
+    --warn:    #E0C94B;
+    --bad:     #E0645A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;background:transparent;overflow:hidden;
+    font-family:'Barlow Condensed',sans-serif;color:var(--bone);-webkit-font-smoothing:antialiased}
+  #stage{position:absolute;top:0;left:0;width:1920px;height:1080px;transform-origin:top left}
+  img.ic{display:block;filter:brightness(0) invert(1)}
+
+  /* ---------------- placar central ---------------- */
+  .spine{position:absolute;top:0;left:50%;transform:translateX(-50%);
+         width:640px;display:flex;flex-direction:column;align-items:center}
+  .spine-main{width:100%;height:88px;background:var(--bg);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+    display:grid;grid-template-columns:1fr 220px 1fr;align-items:center;
+    clip-path:polygon(0 0,100% 0,100% calc(100% - 28px),calc(100% - 28px) 100%,28px 100%,0 calc(100% - 28px))}
+  .side{display:flex;align-items:center;gap:10px;padding:0 20px}
+  .side.right{flex-direction:row-reverse}
+  .tag{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+       letter-spacing:.14em;padding:4px 8px 3px;border:1px solid currentColor;line-height:1}
+  .tag.ct{color:var(--ct)} .tag.tr{color:var(--tr)}
+  .lbl{font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .midCol{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+  .score{display:flex;align-items:baseline;justify-content:center;gap:14px;
+         font-family:'Anton',sans-serif;font-size:56px;line-height:1}
+  .score .sep{font-size:22px;color:var(--steel);transform:translateY(-4px);
+      font-family:'JetBrains Mono',monospace;letter-spacing:.02em}
+  .bombRow{display:none;flex-direction:column;align-items:center;justify-content:center;
+      gap:5px;width:100%;height:100%}
+  .bombRow img{width:24px;height:24px}
+  .bombBar{width:150px;height:6px;background:rgba(255,255,255,.15);position:relative;overflow:hidden}
+  .bombBar i{position:absolute;top:0;left:0;bottom:0;background:var(--bad);width:0%;transition:width .25s linear}
+  .bombTime{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--bad);letter-spacing:.05em}
+  .spine-main.bomb-planted .score{display:none}
+  .spine-main.bomb-planted .bombRow{display:flex}
+  .score .lead{color:#fff} .score .trail{color:var(--steel)}
+  .ribbon{display:flex;gap:3px;margin-top:7px;height:8px}
+  .ribbon u{width:10px;display:block;text-decoration:none}
+  .meta{margin-top:7px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;
+        text-transform:uppercase;color:var(--steel);display:flex;gap:10px;align-items:center}
+  .meta .dot{width:3px;height:3px;background:var(--steel);border-radius:50%}
+  #connWarn{position:absolute;top:96px;left:50%;transform:translateX(-50%);
+    background:rgba(224,100,90,.15);border:1px solid var(--bad);color:#F5B5AF;
+    font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.05em;
+    padding:7px 14px;display:none;white-space:nowrap}
+
+  /* ---------------- colunas de jogadores ---------------- */
+  /* top calculado pra caber 5 cards (92px + 8px de gap cada) até quase
+     o rodapé de uma tela 1920x1080: 5*92 + 4*8 = 492px de altura total. */
+  .roster{position:absolute;top:560px;width:460px;display:flex;flex-direction:column;gap:8px}
+  .roster.left{left:24px} .roster.right{right:24px}
+  .card{background:var(--bg-soft);backdrop-filter:blur(5px);border-left:5px solid var(--steel);
+        display:grid;grid-template-columns:54px 1fr 60px 78px;align-items:center;gap:12px;
+        padding:0 18px;height:92px;overflow:hidden;transition:opacity .2s}
+  .card.dead{opacity:.35}
+  .card.ct{border-left-color:var(--ct)}
+  .card.tr{border-left-color:var(--tr)}
+  .card.empty{opacity:.25}
+  .idx{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--steel);text-align:center}
+  .info{display:flex;flex-direction:column;justify-content:center;min-width:0}
+  .info .nick{font-size:26px;font-weight:700;text-transform:uppercase;line-height:1;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .info .row2{display:flex;align-items:center;gap:12px;margin-top:6px;
+        font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--steel)}
+  .info .row2 .stat{display:flex;align-items:center;gap:3px}
+  .info .row2 .money{color:var(--good);margin-left:auto}
+  .gear{display:flex;gap:5px;align-items:center;justify-self:end}
+  .gear img.ic{width:18px;height:18px;opacity:.85}
+  .weapon{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .weapon img.ic{width:52px;height:28px;object-fit:contain}
+  .hp{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:28px;text-align:right}
+  .hp.good{color:var(--good)} .hp.warn{color:var(--warn)} .hp.bad{color:var(--bad)}
+
+  /* linha de pips SEMPRE presente (mesmo vazia), pra altura do card não mudar */
+  .killPips{display:flex;gap:3px;margin-top:5px;min-height:9px}
+  .killPips i{width:9px;height:9px;background:var(--bad);
+    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);display:block}
+
+  /* ---------------- radar ---------------- */
+  .radarBox{position:absolute;top:24px;left:24px;
+    width:340px;height:340px;background:var(--bg-soft);backdrop-filter:blur(5px);
+    border:1px solid var(--line);overflow:hidden}
+  .radarBox .mapImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+  .radarBox .grid{position:absolute;inset:0;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+    background-size:23px 23px}
+  .radarBox .label{position:absolute;top:-19px;left:0;font-family:'JetBrains Mono',monospace;
+    font-size:10px;letter-spacing:.2em;color:var(--steel);text-transform:uppercase}
+  .radarBox .hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--steel);
+    padding:14px;line-height:1.5}
+  .dot{position:absolute;width:17px;height:17px;border-radius:50%;transform:translate(-50%,-50%);
+    border:1px solid rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;color:#0b0f14;line-height:1}
+  .dot.ct{background:var(--ct)} .dot.tr{background:var(--tr)}
+  .dot .dotIcon{display:none;width:65%;height:65%;object-fit:contain;
+    filter:brightness(0) invert(1);pointer-events:none}
+
+  /* marcador de morto: some o círculo preenchido, vira um "X" translúcido
+     na cor do time, no último lugar conhecido onde o jogador morreu. */
+  .dot.dead{background:transparent;border:none;box-shadow:none;opacity:.55}
+  .dot.dead .dotIcon{display:none}
+  .dot.dead .dotNum{font-size:15px;font-weight:900;font-family:Arial,sans-serif}
+  .dot.dead.ct .dotNum{color:var(--ct)}
+  .dot.dead.tr .dotNum{color:var(--tr)}
+
+  /* jogador com a bomba na mão: o próprio ponto dele fica vermelho, mas
+      continua mostrando o número. */
+  .dot.bombCarrier{background:var(--bad);border-color:#fff;color:#fff}
+    .dot.bombCarrier .dotIcon{display:none}
+
+  /* marcador da bomba largada/plantada: SEM círculo de fundo, só o ícone
+     puro (tingido de vermelho). Estático enquanto largada; pisca quando
+     plantada (ou sendo desarmada) pra chamar atenção pro local exato. */
+  .dot.bomb{background:transparent;border:none;box-shadow:none;width:22px;height:22px}
+  .dot.bomb .dotNum{display:none}
+  .dot.bomb .dotIcon{display:block;width:100%;height:100%;
+    /* aproximação de tingimento vermelho via filtro CSS (não depende de
+       cor interna do svg); ajuste os valores se a cor não bater exato */
+    filter:invert(35%) sepia(64%) saturate(1749%) hue-rotate(325deg) brightness(93%) contrast(93%)}
+  .dot.bomb.planted{width:26px;height:26px;animation:bombBlink .6s steps(1,end) infinite}
+  @keyframes bombBlink{
+    0%,49%{opacity:1}
+    50%,100%{opacity:.15}
+  }
+
+  /* ---------------- painel "espectando agora" ---------------- */
+  .specPanel{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
+    display:none;align-items:center;gap:16px;background:var(--bg-soft);backdrop-filter:blur(5px);
+    border:1px solid var(--line);border-left:4px solid var(--steel);padding:12px 22px;min-width:380px}
+  .specPanel.ct{border-left-color:var(--ct)} .specPanel.tr{border-left-color:var(--tr)}
+  .specPanel .specLabel{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;
+    color:var(--steel);text-transform:uppercase;position:absolute;top:-18px;left:0}
+  .specPanel img.weaponIc{width:52px;height:30px;object-fit:contain}
+  .specPanel .specWeaponCol{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .specPanel .specAmmo{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--steel);white-space:nowrap}
+  .specPanel .specAmmo b{color:var(--bone);font-weight:700}
+  .specPanel .specAmmo .reserve{color:var(--good)}
+  .specPanel .specInfo{display:flex;flex-direction:column;gap:3px}
+  .specPanel .specNick{font-size:28px;font-weight:700;text-transform:uppercase;line-height:1}
+  .specPanel .specStats{display:flex;gap:14px;font-family:'JetBrains Mono',monospace;
+    font-size:13px;color:var(--steel);align-items:center}
+  .specPanel .specStats .money{color:var(--good)}
+  .specPanel .specHp{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:32px;
+    margin-left:auto}
+  .specPanel .specHp.good{color:var(--good)} .specPanel .specHp.warn{color:var(--warn)} .specPanel .specHp.bad{color:var(--bad)}
+
+  /* ---------------- pips de kill no round ---------------- */
+  .killPips{display:flex;gap:3px;margin-top:4px}
+  .killPips i{width:8px;height:8px;background:var(--bad);
+    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);display:block}
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <div class="spine">
+    <div class="spine-main">
+      <div class="side left"><span class="tag ct">CT</span><span class="lbl" id="ctLabel">COUNTER</span></div>
+      <div class="midCol">
+        <div class="score" id="scoreRow">
+          <span id="scoreCT">0</span>
+          <span class="sep" id="scoreSep">:</span>
+          <span id="scoreT">0</span>
+        </div>
+        <div class="bombRow" id="bombRow">
+          <img src="./icons/planted_c4.svg" class="ic" style="filter:none" onerror="this.style.display='none'">
+          <div class="bombBar"><i id="bombBarFill"></i></div>
+          <div class="bombTime" id="bombTime">0:40</div>
+        </div>
+      </div>
+      <div class="side right"><span class="tag tr">TR</span><span class="lbl" id="trLabel">TERRORIST</span></div>
+    </div>
+    <div class="ribbon" id="ribbon"></div>
+    <div class="meta"><span id="mapName">—</span><span class="dot"></span><span id="roundInfo">ROUND —</span><span class="dot"></span><span id="bombInfo">—</span></div>
+  </div>
+
+  <div id="connWarn">Sem conexão com http://localhost:5000/api/hud — o CS2HudExporter está rodando?</div>
+
+  <div class="roster left" id="rosterCT"></div>
+  <div class="roster right" id="rosterT"></div>
+
+  <div class="radarBox" id="radarBox">
+    <div class="label">Posições</div>
+    <img class="mapImg" id="radarMapImg" alt="">
+    <div class="grid" id="radarGrid"></div>
+    <div class="hint" id="radarHint">Posições só chegam quando você está<br>espectando a partida (allplayers_position)</div>
+  </div>
+  <div class="specPanel" id="specPanel">
+    <span class="specLabel">Espectando</span>
+    <div class="specWeaponCol">
+      <img class="weaponIc ic" id="specWeapon" src="" alt="">
+      <span class="specAmmo" id="specAmmo"></span>
+    </div>
+    <div class="specInfo">
+      <span class="specNick" id="specNick">—</span>
+      <div class="specStats">
+        <span id="specTeam">CT</span>
+        <span>K <b id="specKills" style="color:var(--bone)">0</b></span>
+        <span>D <b id="specDeaths" style="color:var(--bone)">0</b></span>
+        <span class="money" id="specMoney">$0</span>
+      </div>
+    </div>
+    <span class="specHp" id="specHp">100</span>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // =====================================================================
+  // CONFIGURAÇÃO
+  // =====================================================================
+  var API_URL = 'http://localhost:5000/api/hud';
+  var POLL_MS = 100; // busca local é barata; quem garante fluidez visual é o requestAnimationFrame do radar, não isso aqui
+  var ICONS_PATH = './icons/';
+  var MAPS_PATH = './icons/maps/'; // imagens de radar dos mapas (você fornece)
+  // Tempo padrão da bomba em partidas competitivas de CS2. Se você jogar
+  // em servidor com mp_c4timer diferente, ajuste aqui.
+  var BOMB_TOTAL_SECONDS = 40;
+  // Duração padrão de freezetime e do round "live" (mp_freezetime /
+  // mp_round_time_defuse). Usados só como estimativa local quando o
+  // servidor não manda o tempo exato (o que só acontece espectando -
+  // veja README). Ajuste se seu servidor usa configs diferentes.
+  var FREEZETIME_SECONDS = 15;
+  var ROUND_TIME_SECONDS = 115;
+
+  // Mapeia o nome interno do GSI ("weapon_ak47", "weapon_c4"...) pro nome
+  // do arquivo .svg. A maioria é 1:1 (só tira o prefixo "weapon_"), estes
+  // são os casos que precisam de um empurrãozinho.
+  var WEAPON_OVERRIDES = {
+    weapon_hkp2000: 'hkp2000', weapon_usp_silencer: 'usp_silencer',
+    weapon_m4a1_silencer: 'm4a1_silencer', weapon_m4a1: 'm4a1',
+    weapon_knife: 'knife', weapon_bayonet: 'bayonet'
+  };
+
+  // Calibração de radar (fonte: arquivos de overview do próprio jogo —
+  // "pos_x"/"pos_y"/"scale" — valores aproximados da comunidade; ajuste
+  // fino pode ser necessário mapa a mapa).
+  var RADAR_CAL = {
+    de_dust2:    { x: -2476, y: 3239, scale: 4.4 },
+    de_mirage:   { x: -3230, y: 1713, scale: 5.0 },
+    de_inferno:  { x: -2087, y: 3870, scale: 4.9 },
+    de_nuke:     { x: -3453, y: 2887, scale: 7.0 },
+    de_overpass: { x: -4831, y: 1781, scale: 5.2 },
+    de_vertigo:  { x: -3168, y: 1762, scale: 4.0 },
+    de_ancient:  { x: -2953, y: 2164, scale: 5.0 },
+    de_anubis:   { x: -2796, y: 3328, scale: 5.22 },
+    de_train:    { x: -2477, y: 2392, scale: 4.7 }
+  };
+
+  // =====================================================================
+  // HELPERS
+  // =====================================================================
+  var $ = function(id){ return document.getElementById(id); };
+
+  function weaponIcon(rawName){
+    if(!rawName) return null;
+    if(WEAPON_OVERRIDES[rawName]) return ICONS_PATH + WEAPON_OVERRIDES[rawName] + '.svg';
+    var stripped = rawName.replace(/^weapon_/, '');
+    return ICONS_PATH + stripped + '.svg';
+  }
+
+  function onIconError(img){
+    // se o svg específico não existir na pasta (ex: variação de faca/skin
+    // que você não baixou), cai pro genérico em vez de ficar quebrado.
+    if(img.dataset.fallback) { img.style.visibility = 'hidden'; return; }
+    img.dataset.fallback = '1';
+    img.src = ICONS_PATH + 'melee.svg';
+  }
+
+  function makeIcon(src, cls){
+    var img = document.createElement('img');
+    img.className = 'ic ' + (cls || '');
+    img.src = src;
+    img.onerror = function(){ onIconError(img); };
+    return img;
+  }
+
+  function hpClass(hp){
+    if(hp <= 0) return 'bad';
+    if(hp <= 30) return 'bad';
+    if(hp <= 65) return 'warn';
+    return 'good';
+  }
+
+  function fmtClock(totalSeconds){
+    var s = Math.max(0, Math.round(totalSeconds));
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  // =====================================================================
+  // RENDER DE UM CARD DE JOGADOR
+  // =====================================================================
+  // globalIndex: número fixo de 0 a 9 (CT = 0-4, T = 5-9), mostrado no
+  // card E no radar, pra identificar visualmente o mesmo jogador nos dois.
+  function renderCard(container, player, globalIndex, side){
+    var card = document.createElement('div');
+
+    if(!player){
+      card.className = 'card empty ' + side;
+      card.innerHTML = '<div class="idx">' + globalIndex + '</div><div class="info"><div class="nick">— vazio —</div></div><div></div><div></div>';
+      container.appendChild(card);
+      return;
+    }
+
+    var dead = !!player.isDead;
+    card.className = 'card ' + side + (dead ? ' dead' : '');
+
+    // número fixo do jogador (0-9)
+    var idxEl = document.createElement('div');
+    idxEl.className = 'idx'; idxEl.textContent = globalIndex;
+    card.appendChild(idxEl);
+
+    // nick + linha de stats (kills / deaths / dinheiro)
+    var info = document.createElement('div'); info.className = 'info';
+    var nick = document.createElement('div'); nick.className = 'nick'; nick.textContent = player.nick || '?';
+    var row2 = document.createElement('div'); row2.className = 'row2';
+
+    var kills = document.createElement('span'); kills.className = 'stat';
+    kills.innerHTML = '<b style="color:var(--good)">K</b> ';
+    kills.appendChild(document.createTextNode(player.kills));
+    var deaths = document.createElement('span'); deaths.className = 'stat';
+    deaths.innerHTML = '<b style="color:var(--bad)">D</b> ';
+    deaths.appendChild(document.createTextNode(player.deaths));
+    var money = document.createElement('span'); money.className = 'money';
+    money.textContent = '$' + (player.money || 0);
+
+    row2.appendChild(kills); row2.appendChild(deaths); row2.appendChild(money);
+    info.appendChild(nick); info.appendChild(row2);
+
+    // pips de kill do round: um losango vermelho pra cada abate que o
+    // jogador já fez NESSA rodada (zera quando o round vira). A linha
+    // fica sempre presente (mesmo vazia) pra altura do card não mudar.
+    var pips = document.createElement('div'); pips.className = 'killPips';
+    var rk = player.roundKills || 0;
+    for(var pi = 0; pi < rk; pi++) pips.appendChild(document.createElement('i'));
+    info.appendChild(pips);
+
+    card.appendChild(info);
+
+    // arma "de verdade" (principal/secundária) mais recente - se ele tá
+    // com uma granada/utilitária na mão agora, continua mostrando a arma
+    // dele em vez da granada (ver displayWeapon calculado em render()).
+    var weaponWrap = document.createElement('div'); weaponWrap.className = 'weapon';
+    var wIconSrc = weaponIcon(player.displayWeapon || player.activeWeapon);
+    if(wIconSrc) weaponWrap.appendChild(makeIcon(wIconSrc));
+    // utilitárias + armadura, em baixo do ícone da arma
+    var gear = document.createElement('div'); gear.className = 'gear';
+    (player.utility || []).forEach(function(u){
+      var src = weaponIcon(u);
+      if(src) gear.appendChild(makeIcon(src));
+    });
+    if(player.hasArmor){
+      gear.appendChild(makeIcon(ICONS_PATH + (player.hasHelmet ? 'armor_helmet.svg' : 'armor.svg')));
+    }
+    weaponWrap.appendChild(gear);
+    card.appendChild(weaponWrap);
+
+    // vida
+    var hp = document.createElement('div');
+    hp.className = 'hp ' + hpClass(player.health);
+    hp.textContent = dead ? '—' : player.health;
+    card.appendChild(hp);
+
+    container.appendChild(card);
+  }
+
+  function renderRoster(container, players, side, offset){
+    container.innerHTML = '';
+    var bySlot = {};
+    players.forEach(function(p){ bySlot[p.hudIndex] = p; });
+    for(var i = 0; i < 5; i++){
+      renderCard(container, bySlot[offset + i] || null, offset + i, side);
+    }
+  }
+
+  // =====================================================================
+  // RIBBON (histórico de rounds) — construído sozinho a partir da
+  // variação do placar entre uma atualização e outra.
+  // =====================================================================
+  var lastCT = null, lastT = null, history = [];
+
+  // "Morte grudenta": ver uso em render(). Chave = steamId do jogador.
+  var deadThisRound = {};
+  var lastDeathResetKey = null; // combinação mapa+round
+  var lastRoundPhase = null;
+  var lastKnownPos = {}; // steamId -> {x,y} - última posição válida recebida (mundo, não %)
+
+  // Numeração 0-9 ESTÁVEL pra partida inteira (não recalculada a cada
+  // poll) - se recalculássemos a cada resposta, um jogador que sumisse
+  // momentaneamente da lista allplayers (comum logo após morrer) podia
+  // reaparecer com outro número, e isso quebrava o X de morte (o slot
+  // antigo ficava "sem dono" e era desativado). Reset só acontece junto
+  // com resetVisuals() (reinício completo do HUD).
+  var hudIndexMap = {};   // steamId -> index (0-9)
+  var hudIndexOwner = {}; // index -> steamId
+  var lastNick = {};      // steamId -> nick (pra continuar rotulando mesmo se ele sumir momentaneamente)
+  var lastTeam = {};      // steamId -> 'CT'/'T'
+
+  function assignHudIndex(p){
+    var idx = hudIndexMap[p.steamId];
+    var inRange = idx !== undefined &&
+      ((p.team === 'CT' && idx >= 0 && idx <= 4) || (p.team === 'T' && idx >= 5 && idx <= 9));
+    if(inRange && (hudIndexOwner[idx] === undefined || hudIndexOwner[idx] === p.steamId)){
+      hudIndexOwner[idx] = p.steamId;
+      return idx;
+    }
+    // mudou de time ou nunca teve slot - libera o antigo (se tinha) e pega um novo
+    if(idx !== undefined && hudIndexOwner[idx] === p.steamId) delete hudIndexOwner[idx];
+    var start = p.team === 'CT' ? 0 : 5;
+    for(var i = start; i < start + 5; i++){
+      if(hudIndexOwner[i] === undefined){
+        hudIndexMap[p.steamId] = i;
+        hudIndexOwner[i] = p.steamId;
+        return i;
+      }
+    }
+    return undefined; // mais de 5 no time (não deveria acontecer em 5x5) - ignora
+  }
+
+  // Última arma "de verdade" (principal/secundária) que cada jogador
+  // segurou - usado pra continuar mostrando a arma no card mesmo quando
+  // ele tem uma utilitária/granada na mão no momento.
+  var lastGunWeapon = {}; // steamId -> nome da arma (ex: "weapon_ak47")
+  var NON_GUN_WEAPONS = [
+    'weapon_hegrenade', 'weapon_flashbang', 'weapon_smokegrenade', 'weapon_molotov',
+    'weapon_incgrenade', 'weapon_decoy', 'weapon_healthshot', 'weapon_c4', 'weapon_taser'
+  ];
+  function isGunWeapon(name){
+    if(!name) return false;
+    if(name.indexOf('knife') !== -1 || name === 'weapon_bayonet') return false;
+    return NON_GUN_WEAPONS.indexOf(name) === -1;
+  }
+
+  // ---- rastreador local de fase, pra estimar o timer quando o servidor
+  // não manda o valor exato (o que só acontece espectando/GOTV) ----
+  var phaseTracker = { name: null, startedAt: 0 };
+  var bombTracker = { planted: false, startedAt: 0 };
+
+  function updateTrackers(state){
+    var phase = (state.roundPhase || '').toLowerCase();
+    if(phase !== phaseTracker.name){
+      phaseTracker.name = phase;
+      phaseTracker.startedAt = Date.now();
+    }
+    var planted = (state.bombState || '').toLowerCase() === 'planted';
+    if(planted !== bombTracker.planted){
+      bombTracker.planted = planted;
+      bombTracker.startedAt = Date.now();
+    }
+  }
+
+  // Segundos restantes estimados desde que a fase começou (client-side).
+  function estimatedSecondsLeft(tracker, totalSeconds){
+    var elapsed = (Date.now() - tracker.startedAt) / 1000;
+    return Math.max(0, totalSeconds - elapsed);
+  }
+
+  function trackRounds(ct, t){
+    if(lastCT === null){ lastCT = ct; lastT = t; return; }
+    if(ct > lastCT) history.push('ct');
+    else if(t > lastT) history.push('tr');
+    if(ct < lastCT || t < lastT) history = []; // placar zerou (troca de mapa/OT reset)
+    lastCT = ct; lastT = t;
+  }
+
+  function renderRibbon(){
+    var box = $('ribbon');
+    box.innerHTML = '';
+    history.forEach(function(side){
+      var u = document.createElement('u');
+      u.style.background = side === 'ct' ? 'var(--ct)' : 'var(--tr)';
+      box.appendChild(u);
+    });
+  }
+
+  // =====================================================================
+  // PAINEL "ESPECTANDO AGORA"
+  // =====================================================================
+  function renderSpectator(player){
+    var panel = $('specPanel');
+    if(!player){
+      panel.style.display = 'none';
+      return;
+    }
+    panel.style.display = 'flex';
+    panel.className = 'specPanel ' + (player.team === 'CT' ? 'ct' : 'tr');
+
+    $('specNick').textContent = player.nick || '?';
+    $('specTeam').textContent = player.team || '';
+    $('specTeam').style.color = player.team === 'CT' ? 'var(--ct)' : 'var(--tr)';
+    $('specKills').textContent = player.kills;
+    $('specDeaths').textContent = player.deaths;
+    $('specMoney').textContent = '$' + (player.money || 0);
+    $('specHp').textContent = player.health <= 0 ? '—' : player.health;
+    $('specHp').className = 'specHp ' + hpClass(player.health);
+
+    // mesma lógica dos cards: se a arma ativa é utilitário/granada, mostra
+    // a última arma principal/secundária que ele segurou (cache global
+    // lastGunWeapon, já alimentado pelo loop de players em render()).
+    var dispWeapon = isGunWeapon(player.activeWeapon)
+      ? player.activeWeapon
+      : (lastGunWeapon[player.steamId] || player.activeWeapon);
+    var wIcon = weaponIcon(dispWeapon);
+    var wEl = $('specWeapon');
+    if(wIcon){ wEl.src = wIcon; wEl.style.display = 'block'; wEl.onerror = function(){ onIconError(wEl); }; }
+    else { wEl.style.display = 'none'; }
+
+    // munição da arma ativa (clipe atual / clipe máximo + reserva). Armas
+    // sem pente (faca, granadas, C4) vêm com ammoClipMax = 0, aí escondemos.
+    var ammoEl = $('specAmmo');
+    if(player.ammoClipMax > 0){
+      ammoEl.style.display = 'block';
+      ammoEl.innerHTML = '<b>' + player.ammoClip + '</b> / ' + player.ammoClipMax +
+        ' <span class="reserve">+' + player.ammoReserve + '</span>';
+    } else {
+      ammoEl.style.display = 'none';
+    }
+  }
+
+  // =====================================================================
+  // RADAR
+  // =====================================================================
+  // O CS2/GSI não manda posição 60x por segundo (normalmente bem menos,
+  // depende do "throttle"/"buffer" do .cfg). Pra parecer fluido mesmo
+  // assim, a gente separa duas coisas:
+  //  1) chegada de dados novos (rede) -> só atualiza o "alvo" de cada ponto
+  //  2) desenho na tela (requestAnimationFrame) -> roda no refresh rate
+  //     do monitor (60fps, 144fps, o que for) e vai suavizando o ponto
+  //     em direção ao alvo a cada frame, em vez de teleportar.
+  // Isso é a mesma ideia de interpolação usada em jogos multiplayer.
+  var LERP_FACTOR = 0.28; // 0-1: quão rápido o ponto "alcança" o alvo por frame (maior = mais responsivo, menor = mais suave)
+
+  function worldToRadarPct(x, y, mapName){
+    var cal = RADAR_CAL[mapName];
+    if(!cal) return null;
+    var scale = cal.scale * 1024;
+    return {
+      xPct: (x - cal.x) / scale * 100,
+      yPct: (y - cal.y) / -scale * 100
+    };
+  }
+
+  var lastRadarMap = null;
+  var BOMB_SLOT = 10; // índice reservado no array radarSlots pro marcador da bomba (não é jogador)
+
+  // Cria os 10 pontos de jogador (0-9) + 1 slot extra pra bomba, uma
+  // única vez - recriar elementos DOM a cada frame é o que estava
+  // travando o radar antes.
+  var radarSlots = [];
+  (function initRadarSlots(){
+    var box = $('radarBox');
+    for(var i = 0; i < 11; i++){
+      var el = document.createElement('div');
+      el.className = 'dot';
+      el.style.display = 'none';
+
+      var num = document.createElement('span');
+      num.className = 'dotNum';
+      var icon = document.createElement('img');
+      icon.className = 'dotIcon';
+      icon.onerror = function(){ this.style.display = 'none'; }; // se o c4.svg faltar, o círculo vermelho continua visível
+      el.appendChild(num);
+      el.appendChild(icon);
+
+      box.appendChild(el);
+      radarSlots.push({ el: el, numEl: num, iconEl: icon, curX: 50, curY: 50, tgtX: 50, tgtY: 50, active: false });
+    }
+  })();
+
+  // Chamado a cada poll (rede) - só atualiza ONDE cada ponto deve ir,
+  // nunca mexe em style.left/top diretamente. Quem desenha é o loop de
+  // animação (radarAnimLoop), separado e rodando a 60fps.
+  function renderRadar(players, mapName, bomb){
+    // troca a imagem do mapa só quando o mapa muda (evita recarregar o
+    // arquivo a cada poll).
+    if(mapName !== lastRadarMap){
+      lastRadarMap = mapName;
+      var mapImg = $('radarMapImg');
+      mapImg.onerror = function(){ mapImg.style.display = 'none'; $('radarGrid').style.display = 'block'; };
+      mapImg.onload = function(){ mapImg.style.display = 'block'; $('radarGrid').style.display = 'none'; };
+      mapImg.src = mapName ? (MAPS_PATH + mapName + '.png') : '';
+    }
+
+    var cal = RADAR_CAL[mapName];
+    var withPos = players.filter(function(p){
+      return p.position && !(p.position.x === 0 && p.position.y === 0 && p.position.z === 0);
+    });
+
+    var hint = $('radarHint');
+    if(!cal){
+      hint.style.display = 'flex';
+      hint.textContent = 'Sem calibração de radar para "' + (mapName || '?') + '"';
+      radarSlots.forEach(function(s){ s.active = false; });
+      return;
+    }
+    if(!withPos.length){
+      hint.style.display = 'flex';
+      hint.textContent = 'Posições só chegam quando você está espectando a partida (allplayers_position)';
+      // IMPORTANTE: sem "return" aqui - mesmo sem ninguém reportando
+      // posição AGORA, o loop abaixo ainda pode desenhar o X de quem
+      // morreu usando a última posição em cache (lastKnownPos).
+    } else {
+      hint.style.display = 'none';
+    }
+
+    var bState = ((bomb && bomb.state) || '').toLowerCase();
+    var bombCarrierSteamId = (bState === 'carried') ? (bomb && bomb.player) : null;
+
+    // marca todo mundo inativo antes, e só reativa quem tem posição válida
+    // agora (assim, quem desconectou de vez some do radar)
+    var seen = {};
+
+    players.forEach(function(p){
+      if(typeof p.hudIndex !== 'number') return;
+      var slot = radarSlots[p.hudIndex];
+      if(!slot) return;
+
+      var hasPos = p.position && !(p.position.x === 0 && p.position.y === 0 && p.position.z === 0);
+
+      if(hasPos){
+        // guarda a última posição válida vista, pra poder usar depois se
+        // o jogo parar de mandar posição (comum logo após a morte)
+        lastKnownPos[p.steamId] = { x: p.position.x, y: p.position.y };
+      }
+
+      var worldPos = hasPos ? p.position : (p.isDead ? lastKnownPos[p.steamId] : null);
+      if(!worldPos){ slot.active = false; return; }
+
+      var pos = worldToRadarPct(worldPos.x, worldPos.y, mapName);
+      if(!pos || pos.xPct < 0 || pos.xPct > 100 || pos.yPct < 0 || pos.yPct > 100){ slot.active = false; return; }
+
+      slot.active = true;
+      slot.tgtX = pos.xPct;
+      slot.tgtY = pos.yPct;
+
+      if(p.isDead){
+        // "X" translúcido na cor do time, no lugar onde ele morreu
+        slot.el.className = 'dot dead ' + (p.team === 'CT' ? 'ct' : 'tr');
+        slot.el.title = p.nick + ' (morto)';
+        slot.numEl.textContent = '✕';
+        slot.iconEl.style.display = 'none';
+      } else if(bombCarrierSteamId !== null && String(p.steamId) === String(bombCarrierSteamId)){
+        // com a bomba na mão: o próprio ponto do jogador fica vermelho.
+        slot.el.className = 'dot bombCarrier';
+        slot.el.title = p.nick + ' (com a bomba)';
+        slot.numEl.textContent = String(p.hudIndex);
+        slot.iconEl.style.display = 'none';
+      } else {
+        slot.el.className = 'dot ' + (p.team === 'CT' ? 'ct' : 'tr');
+        slot.el.title = p.nick;
+        slot.numEl.textContent = String(p.hudIndex);
+        slot.iconEl.style.display = 'none';
+      }
+      seen[p.hudIndex] = true;
+    });
+
+    // fallback: jogador morto que sumiu momentaneamente da lista allplayers
+    // (acontece às vezes logo após a morte) continua mostrando o X na
+    // última posição conhecida, em vez de desaparecer e reaparecer.
+    radarSlots.forEach(function(s, i){
+      if(i === BOMB_SLOT || seen[i]) return;
+      var ownerSteamId = hudIndexOwner[i];
+      if(ownerSteamId && deadThisRound[ownerSteamId] && lastKnownPos[ownerSteamId]){
+        var fallbackPos = worldToRadarPct(lastKnownPos[ownerSteamId].x, lastKnownPos[ownerSteamId].y, mapName);
+        if(fallbackPos && fallbackPos.xPct >= 0 && fallbackPos.xPct <= 100 && fallbackPos.yPct >= 0 && fallbackPos.yPct <= 100){
+          s.active = true;
+          s.tgtX = fallbackPos.xPct;
+          s.tgtY = fallbackPos.yPct;
+          var team = lastTeam[ownerSteamId] || 'CT';
+          s.el.className = 'dot dead ' + (team === 'CT' ? 'ct' : 'tr');
+          s.el.title = (lastNick[ownerSteamId] || '?') + ' (morto)';
+          s.numEl.textContent = '✕';
+          s.iconEl.style.display = 'none';
+          return;
+        }
+      }
+      s.active = false;
+    });
+
+    // ---- marcador da bomba largada/plantada (posição exata do node
+    // "bomb" do GSI). Enquanto ela está sendo CARREGADA, quem mostra isso
+    // é o próprio ponto do jogador (acima) - esse marcador aqui só entra
+    // em cena quando ela está largada, sendo plantada, plantada, ou sendo
+    // desarmada (ou seja, ninguém está com ela na mão).
+    var bombSlot = radarSlots[BOMB_SLOT];
+    var bombOnGround = ['dropped', 'planting', 'planted', 'defusing'].indexOf(bState) !== -1;
+    var bPos = bomb && bomb.position;
+    var bombHasPos = bPos && !(bPos.x === 0 && bPos.y === 0 && bPos.z === 0);
+
+    if(cal && bombOnGround && bombHasPos){
+      var bpos = worldToRadarPct(bPos.x, bPos.y, mapName);
+      if(bpos && bpos.xPct >= 0 && bpos.xPct <= 100 && bpos.yPct >= 0 && bpos.yPct <= 100){
+        bombSlot.active = true;
+        bombSlot.tgtX = bpos.xPct;
+        bombSlot.tgtY = bpos.yPct;
+        var isPlanted = bState === 'planted' || bState === 'defusing';
+        bombSlot.el.className = 'dot bomb' + (isPlanted ? ' planted' : '');
+        bombSlot.el.title = 'Bomba: ' + bState + (isPlanted ? ' (local exato)' : '');
+        bombSlot.numEl.textContent = '';
+        bombSlot.iconEl.style.display = 'block';
+        bombSlot.iconEl.src = ICONS_PATH + 'c4.svg';
+      } else {
+        bombSlot.active = false;
+      }
+    } else {
+      bombSlot.active = false;
+    }
+  }
+
+  // Loop de desenho, independente da rede - roda no refresh rate do
+  // navegador (tipicamente 60fps). Só aqui a gente toca em style.left/top.
+  function radarAnimLoop(){
+    for(var i = 0; i < radarSlots.length; i++){
+      var s = radarSlots[i];
+      if(!s.active){
+        if(s.el.style.display !== 'none') s.el.style.display = 'none';
+        continue;
+      }
+      s.el.style.display = 'flex';
+      s.curX += (s.tgtX - s.curX) * LERP_FACTOR;
+      s.curY += (s.tgtY - s.curY) * LERP_FACTOR;
+      s.el.style.left = s.curX + '%';
+      s.el.style.top = s.curY + '%';
+    }
+    requestAnimationFrame(radarAnimLoop);
+  }
+  requestAnimationFrame(radarAnimLoop);
+
+  // =====================================================================
+  // LOOP PRINCIPAL
+  // =====================================================================
+  function render(state){
+    var ct = state.scoreboard.ct, t = state.scoreboard.t;
+
+    $('scoreCT').textContent = ct.score;
+    $('scoreT').textContent = t.score;
+    $('scoreCT').className = ct.score >= t.score ? 'lead' : 'trail';
+    $('scoreT').className = t.score >= ct.score ? 'lead' : 'trail';
+    $('ctLabel').textContent = ct.teamName || 'COUNTER';
+    $('trLabel').textContent = t.teamName || 'TERRORIST';
+    $('mapName').textContent = (state.map || '—').toUpperCase();
+    $('roundInfo').textContent = 'ROUND ' + (state.round || '—');
+    $('bombInfo').textContent = (state.bombState || '—').toUpperCase();
+
+    // Timer de round / bomba. O servidor só manda o valor EXATO quando
+    // alguém está espectando/observando (limitação do GSI da Valve).
+    // Jogando normalmente, a gente estima localmente contando o tempo
+    // desde que a fase mudou (round.phase e bombState não são restritos).
+    updateTrackers(state);
+
+    var bombPlanted = (state.bombState || '').toLowerCase() === 'planted';
+    var mainBar = document.querySelector('.spine-main');
+    var serverLeft = (typeof state.phaseSecondsLeft === 'number' && state.phaseSecondsLeft >= 0)
+      ? state.phaseSecondsLeft : null;
+
+    if(bombPlanted){
+      mainBar.classList.add('bomb-planted');
+      var left = serverLeft !== null ? serverLeft : estimatedSecondsLeft(bombTracker, BOMB_TOTAL_SECONDS);
+      var pct = Math.min(100, Math.max(0, ((BOMB_TOTAL_SECONDS - left) / BOMB_TOTAL_SECONDS) * 100));
+      $('bombBarFill').style.width = pct + '%';
+      $('bombTime').textContent = fmtClock(left);
+    } else {
+      mainBar.classList.remove('bomb-planted');
+      var phase = (state.roundPhase || '').toLowerCase();
+      if(phase === 'freezetime'){
+        $('scoreSep').textContent = fmtClock(serverLeft !== null ? serverLeft : estimatedSecondsLeft(phaseTracker, FREEZETIME_SECONDS));
+      } else if(phase === 'live'){
+        $('scoreSep').textContent = fmtClock(serverLeft !== null ? serverLeft : estimatedSecondsLeft(phaseTracker, ROUND_TIME_SECONDS));
+      } else {
+        $('scoreSep').textContent = ':';
+      }
+    }
+
+    trackRounds(ct.score, t.score);
+    renderRibbon();
+
+    var players = state.players || [];
+
+    // "Morte grudenta": uma vez que o jogador morre, o card/ponto continua
+    // marcado como morto até o round realmente virar - mesmo que o campo
+    // de vida oscile ou demore a atualizar entre um poll e outro.
+    // Reset acontece em QUALQUER um destes casos (cobre reinício de
+    // partida, troca de mapa, mp_restartgame, etc - onde o número do
+    // round sozinho às vezes não muda ou volta pro mesmo valor):
+    //  1) a combinação mapa+round mudou
+    //  2) acabou de entrar em "freezetime" (sempre começo de round novo)
+    var phase = (state.roundPhase || '').toLowerCase();
+    var resetKey = (state.map || '') + '|' + state.round;
+    var enteredFreezetime = phase === 'freezetime' && lastRoundPhase !== 'freezetime';
+    if(resetKey !== lastDeathResetKey || enteredFreezetime){
+      deadThisRound = {};
+      lastKnownPos = {};
+      lastDeathResetKey = resetKey;
+    }
+    lastRoundPhase = phase;
+
+    players.forEach(function(p){
+      // durante o warmup os jogadores podem reportar vida 0 momentaneamente
+      // antes de spawnar de verdade - ignora pra não marcar todo mundo
+      // como morto por engano logo que a HUD/partida reinicia.
+      if(phase !== 'warmup' && p.health <= 0) deadThisRound[p.steamId] = true;
+      p.isDead = !!deadThisRound[p.steamId];
+
+      lastNick[p.steamId] = p.nick;
+      lastTeam[p.steamId] = p.team;
+
+      var idx = assignHudIndex(p);
+      if(typeof idx === 'number') p.hudIndex = idx;
+
+      // se a arma ativa agora é uma "arma de verdade" (não utilitária/faca/
+      // c4), grava como a última segurada. Senão, mostra essa última
+      // gravada no lugar da granada/utilitária que ele tá com a mão.
+      if(isGunWeapon(p.activeWeapon)){
+        lastGunWeapon[p.steamId] = p.activeWeapon;
+        p.displayWeapon = p.activeWeapon;
+      } else {
+        p.displayWeapon = lastGunWeapon[p.steamId] || p.activeWeapon;
+      }
+    });
+
+    var ctPlayers = players.filter(function(p){ return p.team === 'CT' && typeof p.hudIndex === 'number'; });
+    var tPlayers  = players.filter(function(p){ return p.team === 'T' && typeof p.hudIndex === 'number'; });
+
+    renderRoster($('rosterCT'), ctPlayers, 'ct', 0);
+    renderRoster($('rosterT'), tPlayers, 'tr', 5);
+
+    renderRadar(ctPlayers.concat(tPlayers), state.map, state.bomb);
+    renderSpectator(state.spectatedPlayer || null);
+  }
+
+  // =====================================================================
+  // RESET TOTAL DO HUD (equivalente a apertar F5, mas automático)
+  // =====================================================================
+  // Quando o servidor reinicia/troca de partida, a API pode ficar um
+  // tempinho sem mandar dado nenhum (204) ou mandando lista de jogadores
+  // vazia. Sem isso, o HUD ficava "congelado" mostrando o último quadro
+  // (cards mortos, ponto no mapa, etc) até alguém dar F5 manualmente.
+  // Detectamos essa lacuna e zeramos tudo sozinhos.
+  function resetVisuals(){
+    // placar / cabeçalho
+    $('scoreCT').textContent = '0'; $('scoreT').textContent = '0';
+    $('scoreCT').className = ''; $('scoreT').className = '';
+    $('ctLabel').textContent = 'COUNTER'; $('trLabel').textContent = 'TERRORIST';
+    $('mapName').textContent = '—'; $('roundInfo').textContent = 'ROUND —';
+    $('bombInfo').textContent = '—'; $('scoreSep').textContent = ':';
+    document.querySelector('.spine-main').classList.remove('bomb-planted');
+
+    // ribbon de rounds
+    lastCT = null; lastT = null; history = [];
+    renderRibbon();
+
+    // timers estimados
+    lastRoundPhase = null;
+    phaseTracker = { name: null, startedAt: 0 };
+    bombTracker = { planted: false, startedAt: 0 };
+
+    // morte persistente
+    lastDeathResetKey = null; deadThisRound = {}; lastKnownPos = {};
+
+    // cards -> volta pros 5 slots "vazio" de cada lado
+    renderRoster($('rosterCT'), [], 'ct', 0);
+    renderRoster($('rosterT'), [], 'tr', 5);
+
+    // radar -> desativa todos os pontos e volta o hint padrão
+    radarSlots.forEach(function(s){ s.active = false; });
+    lastRadarMap = null;
+    $('radarMapImg').style.display = 'none';
+    $('radarMapImg').src = '';
+    $('radarGrid').style.display = 'block';
+    $('radarHint').style.display = 'flex';
+    $('radarHint').textContent = 'Aguardando dados do CS2...';
+
+    // painel de espectador
+    renderSpectator(null);
+  }
+
+  var failCount = 0;
+  var emptyCount = 0;
+  var needsReset = false; // true enquanto estamos "sem partida ativa"
+
+  function poll(){
+    fetch(API_URL, { cache: 'no-store' })
+      .then(function(res){
+        if(res.status === 204){ failCount = 0; $('connWarn').style.display = 'none'; return null; }
+        if(!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(state){
+        failCount = 0;
+        $('connWarn').style.display = 'none';
+
+        var hasPlayers = state && state.players && state.players.length > 0;
+
+        if(!hasPlayers){
+          // sem partida ativa (204, ou lista de jogadores vazia durante
+          // um restart/troca de mapa). Depois de algumas confirmações
+          // seguidas (evita "piscar" por causa de 1 poll perdido à toa),
+          // reseta o HUD inteiro.
+          emptyCount++;
+          if(emptyCount >= 5 && !needsReset){
+            needsReset = true;
+            resetVisuals();
+          }
+          return;
+        }
+
+        emptyCount = 0;
+        needsReset = false;
+        render(state);
+      })
+      .catch(function(){
+        failCount++;
+        if(failCount >= 3) $('connWarn').style.display = 'block';
+      });
+  }
+
+  function fit(){
+    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    $('stage').style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  poll();
+  setInterval(poll, POLL_MS);
+})();
+</script>
+</body>
+</html>
