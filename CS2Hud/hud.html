@@ -39,6 +39,9 @@
   .tag.ct{color:var(--ct)} .tag.tr{color:var(--tr)}
   .lbl{font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
   .midCol{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+  .scoreCol{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+  .roundLbl{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+      letter-spacing:.22em;color:var(--steel);text-transform:uppercase;line-height:1}
   .score{display:flex;align-items:baseline;justify-content:center;gap:14px;
          font-family:'Anton',sans-serif;font-size:56px;line-height:1}
   .score .sep{font-size:22px;color:var(--steel);transform:translateY(-4px);
@@ -49,14 +52,13 @@
   .bombBar{width:150px;height:6px;background:rgba(255,255,255,.15);position:relative;overflow:hidden}
   .bombBar i{position:absolute;top:0;left:0;bottom:0;background:var(--bad);width:0%;transition:width .25s linear}
   .bombTime{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--bad);letter-spacing:.05em}
-  .spine-main.bomb-planted .score{display:none}
+  .spine-main.bomb-planted .scoreCol{display:none}
   .spine-main.bomb-planted .bombRow{display:flex}
   .score .lead{color:#fff} .score .trail{color:var(--steel)}
   .ribbon{display:flex;gap:3px;margin-top:7px;height:8px}
   .ribbon u{width:10px;display:block;text-decoration:none}
-  .meta{margin-top:7px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;
-        text-transform:uppercase;color:var(--steel);display:flex;gap:10px;align-items:center}
-  .meta .dot{width:3px;height:3px;background:var(--steel);border-radius:50%}
+  .ribbon u.unk{background:rgba(237,239,242,.18)} /* round jogado com a HUD fechada: vencedor desconhecido */
+  .ribbon .half{width:2px;height:14px;margin:-3px 5px 0;background:var(--bone)} /* troca de lado */
   #connWarn{position:absolute;top:96px;left:50%;transform:translateX(-50%);
     background:rgba(224,100,90,.15);border:1px solid var(--bad);color:#F5B5AF;
     font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.05em;
@@ -95,7 +97,12 @@
     clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);display:block}
 
   /* ---------------- radar ---------------- */
-  .radarBox{position:absolute;top:24px;left:24px;
+  .mapTitle{position:absolute;top:24px;left:24px;width:340px;height:36px;
+    background:var(--bg);border:1px solid var(--line);border-bottom:none;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Anton',sans-serif;font-size:24px;letter-spacing:.12em;color:#fff;
+    text-transform:uppercase;line-height:1}
+  .radarBox{position:absolute;top:60px;left:24px;
     width:340px;height:340px;background:var(--bg-soft);backdrop-filter:blur(5px);
     border:1px solid var(--line);overflow:hidden}
   .radarBox .mapImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
@@ -116,7 +123,7 @@
 
   /* marcador de morto: some o círculo preenchido, vira um "X" translúcido
      na cor do time, no último lugar conhecido onde o jogador morreu. */
-  .dot.dead{background:transparent;border:none;box-shadow:none;opacity:.55}
+  .dot.dead{background:transparent;border:none;box-shadow:none;opacity:.85}
   .dot.dead .dotIcon{display:none}
   .dot.dead .dotNum{font-size:15px;font-weight:900;font-family:Arial,sans-serif}
   .dot.dead.ct .dotNum{color:var(--ct)}
@@ -130,13 +137,16 @@
   /* marcador da bomba largada/plantada: SEM círculo de fundo, só o ícone
      puro (tingido de vermelho). Estático enquanto largada; pisca quando
      plantada (ou sendo desarmada) pra chamar atenção pro local exato. */
-  .dot.bomb{background:transparent;border:none;box-shadow:none;width:22px;height:22px}
+  .dot.bomb{background:transparent;border:none;box-shadow:none;width:26px;height:26px}
   .dot.bomb .dotNum{display:none}
   .dot.bomb .dotIcon{display:block;width:100%;height:100%;
     /* aproximação de tingimento vermelho via filtro CSS (não depende de
        cor interna do svg); ajuste os valores se a cor não bater exato */
-    filter:invert(35%) sepia(64%) saturate(1749%) hue-rotate(325deg) brightness(93%) contrast(93%)}
-  .dot.bomb.planted{width:26px;height:26px;animation:bombBlink .6s steps(1,end) infinite}
+    /* brightness(0) zera a cor original; o resto pinta de vermelho puro
+       (~#E0201B, mesmo tom do ponto de quem carrega a bomba) */
+    filter:brightness(0) saturate(100%) invert(16%) sepia(99%) saturate(7404%) hue-rotate(4deg) brightness(95%) contrast(118%)
+      drop-shadow(0 0 1px rgba(0,0,0,.9))}
+  .dot.bomb.planted{width:30px;height:30px;animation:bombBlink .6s steps(1,end) infinite}
   @keyframes bombBlink{
     0%,49%{opacity:1}
     50%,100%{opacity:.15}
@@ -176,10 +186,13 @@
     <div class="spine-main">
       <div class="side left"><span class="tag ct">CT</span><span class="lbl" id="ctLabel">COUNTER</span></div>
       <div class="midCol">
-        <div class="score" id="scoreRow">
-          <span id="scoreCT">0</span>
-          <span class="sep" id="scoreSep">:</span>
-          <span id="scoreT">0</span>
+        <div class="scoreCol">
+          <div class="roundLbl" id="roundInfo">ROUND —</div>
+          <div class="score" id="scoreRow">
+            <span id="scoreCT">0</span>
+            <span class="sep" id="scoreSep">:</span>
+            <span id="scoreT">0</span>
+          </div>
         </div>
         <div class="bombRow" id="bombRow">
           <img src="./icons/planted_c4.svg" class="ic" style="filter:none" onerror="this.style.display='none'">
@@ -190,7 +203,6 @@
       <div class="side right"><span class="tag tr">TR</span><span class="lbl" id="trLabel">TERRORIST</span></div>
     </div>
     <div class="ribbon" id="ribbon"></div>
-    <div class="meta"><span id="mapName">—</span><span class="dot"></span><span id="roundInfo">ROUND —</span><span class="dot"></span><span id="bombInfo">—</span></div>
   </div>
 
   <div id="connWarn">Sem conexão com http://localhost:5000/api/hud — o CS2HudExporter está rodando?</div>
@@ -198,8 +210,8 @@
   <div class="roster left" id="rosterCT"></div>
   <div class="roster right" id="rosterT"></div>
 
+  <div class="mapTitle" id="mapName">—</div>
   <div class="radarBox" id="radarBox">
-    <div class="label">Posições</div>
     <img class="mapImg" id="radarMapImg" alt="">
     <div class="grid" id="radarGrid"></div>
     <div class="hint" id="radarHint">Posições só chegam quando você está<br>espectando a partida (allplayers_position)</div>
@@ -408,7 +420,9 @@
   var deadThisRound = {};
   var lastDeathResetKey = null; // combinação mapa+round
   var lastRoundPhase = null;
-  var lastKnownPos = {}; // steamId -> {x,y} - última posição válida recebida (mundo, não %)
+  var lastAlivePos = {}; // steamId -> {x,y} - última posição recebida com o jogador VIVO (mundo, não %)
+  var deathPos = {};     // steamId -> {x,y} - onde ele morreu; gravado uma vez e não muda mais no round
+  var lastDeathRound = null;
 
   // Numeração 0-9 ESTÁVEL pra partida inteira (não recalculada a cada
   // poll) - se recalculássemos a cada resposta, um jogador que sumisse
@@ -493,22 +507,88 @@
     return Math.max(0, totalSeconds - elapsed);
   }
 
-  function trackRounds(ct, t){
-    if(lastCT === null){ lastCT = ct; lastT = t; return; }
-    if(ct > lastCT) history.push('ct');
-    else if(t > lastT) history.push('tr');
-    if(ct < lastCT || t < lastT) history = []; // placar zerou (troca de mapa/OT reset)
+  // Histórico salvo no navegador (localStorage), por isso sobrevive ao F5.
+  // Chave única; guarda de qual mapa é e o placar no momento.
+  var HISTORY_KEY = 'cs2hud.roundHistory';
+  var historyMap = null;
+
+  function saveHistory(){
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify({ map: historyMap, ct: lastCT, t: lastT, history: history }));
+    } catch(e){ /* sem storage (modo privado etc): só não persiste */ }
+  }
+
+  function loadHistory(){
+    try {
+      var saved = JSON.parse(localStorage.getItem(HISTORY_KEY) || 'null');
+      if(saved && Array.isArray(saved.history)) return saved;
+    } catch(e){}
+    return null;
+  }
+
+  function trackRounds(ct, t, mapName){
+    var changed = false;
+    if(lastCT === null){
+      changed = true;
+      // Primeiro dado desde que a página abriu: tenta continuar o histórico
+      // salvo, se for a mesma partida (mesmo mapa e placar não diminuiu).
+      var saved = loadHistory();
+      if(saved && saved.map === mapName && ct >= saved.ct && t >= saved.t &&
+         saved.history.length === saved.ct + saved.t){
+        history = saved.history.slice();
+        lastCT = saved.ct; lastT = saved.t;
+      } else {
+        history = [];
+        lastCT = 0; lastT = 0;
+      }
+      historyMap = mapName;
+    }
+    if(mapName !== historyMap || ct < lastCT || t < lastT){
+      // trocou de mapa ou placar zerou (partida nova)
+      history = []; lastCT = 0; lastT = 0; historyMap = mapName;
+      changed = true;
+    }
+    if(ct - lastCT === 1 && t === lastT){ history.push('ct'); changed = true; }
+    else if(t - lastT === 1 && ct === lastCT){ history.push('tr'); changed = true; }
+    // rounds que passaram sem a HUD ver (estava fechada / pulou vários):
+    // marcador cinza, pra divisória do intervalo continuar no lugar certo
+    while(history.length < ct + t){ history.push('unk'); changed = true; }
     lastCT = ct; lastT = t;
+    if(changed) saveHistory();
+  }
+
+  // Troca de lado: CS2 competitivo é MR12 (intervalo após o round 12) e o
+  // overtime é MR3 (troca a cada 3 rounds). Ajuste se usar outro formato.
+  var HALF_ROUNDS = 12;
+  var OT_HALF_ROUNDS = 3;
+  function isSideSwitchAfter(roundNumber){
+    if(roundNumber === HALF_ROUNDS) return true;
+    if(roundNumber > HALF_ROUNDS * 2) return (roundNumber - HALF_ROUNDS * 2) % OT_HALF_ROUNDS === 0;
+    return false;
   }
 
   function renderRibbon(){
     var box = $('ribbon');
     box.innerHTML = '';
-    history.forEach(function(side){
+    history.forEach(function(side, i){
       var u = document.createElement('u');
-      u.style.background = side === 'ct' ? 'var(--ct)' : 'var(--tr)';
+      if(side === 'ct') u.style.background = 'var(--ct)';
+      else if(side === 'tr') u.style.background = 'var(--tr)';
+      else u.className = 'unk';
       box.appendChild(u);
+      // divisória depois do último round de cada metade
+      if(isSideSwitchAfter(i + 1)){
+        var sep = document.createElement('span');
+        sep.className = 'half';
+        box.appendChild(sep);
+      }
     });
+  }
+
+  // "de_dust2" -> "DUST2"
+  function mapDisplayName(map){
+    if(!map) return '—';
+    return map.replace(/^(de|cs|ar|dz)_/i, '').replace(/_/g, ' ').toUpperCase();
   }
 
   // =====================================================================
@@ -632,7 +712,7 @@
 
       box.appendChild(el);
       radarSlots.push({ el: el, numEl: num, iconEl: icon, curX: 50, curY: 50, tgtX: 50, tgtY: 50, fromX: 50, fromY: 50,
-        lastUpdateAt: 0, interval: 100, visible: false, active: false });
+        lastUpdateAt: 0, interval: 100, visible: false, active: false, drawnX: null, drawnY: null });
     }
   })();
 
@@ -667,7 +747,7 @@
       hint.textContent = 'Posições só chegam quando você está espectando a partida (allplayers_position)';
       // IMPORTANTE: sem "return" aqui - mesmo sem ninguém reportando
       // posição AGORA, o loop abaixo ainda pode desenhar o X de quem
-      // morreu usando a última posição em cache (lastKnownPos).
+      // morreu usando a posição gravada na morte (deathPos).
     } else {
       hint.style.display = 'none';
     }
@@ -697,13 +777,19 @@
 
       var hasPos = p.position && !(p.position.x === 0 && p.position.y === 0 && p.position.z === 0);
 
-      if(hasPos){
-        // guarda a última posição válida vista, pra poder usar depois se
-        // o jogo parar de mandar posição (comum logo após a morte)
-        lastKnownPos[p.steamId] = { x: p.position.x, y: p.position.y };
+      if(p.isDead){
+        // X fica cravado onde ele morreu: a última posição vista com ele
+        // VIVO. Depois da morte o GSI continua mandando posições (câmera,
+        // corpo caindo, 0,0,0...) que fariam o X andar - ignoramos.
+        if(!deathPos[p.steamId]){
+          var src = lastAlivePos[p.steamId] || (hasPos ? p.position : null);
+          if(src) deathPos[p.steamId] = { x: src.x, y: src.y };
+        }
+      } else if(hasPos){
+        lastAlivePos[p.steamId] = { x: p.position.x, y: p.position.y };
       }
 
-      var worldPos = hasPos ? p.position : (p.isDead ? lastKnownPos[p.steamId] : null);
+      var worldPos = p.isDead ? deathPos[p.steamId] : (hasPos ? p.position : null);
       if(!worldPos){ slot.active = false; return; }
 
       var pos = worldToRadarPct(worldPos.x, worldPos.y, mapName);
@@ -739,8 +825,8 @@
     radarSlots.forEach(function(s, i){
       if(i === BOMB_SLOT || seen[i]) return;
       var ownerSteamId = hudIndexOwner[i];
-      if(ownerSteamId && deadThisRound[ownerSteamId] && lastKnownPos[ownerSteamId]){
-        var fallbackPos = worldToRadarPct(lastKnownPos[ownerSteamId].x, lastKnownPos[ownerSteamId].y, mapName);
+      if(ownerSteamId && deadThisRound[ownerSteamId] && deathPos[ownerSteamId]){
+        var fallbackPos = worldToRadarPct(deathPos[ownerSteamId].x, deathPos[ownerSteamId].y, mapName);
         if(fallbackPos && fallbackPos.xPct >= 0 && fallbackPos.xPct <= 100 && fallbackPos.yPct >= 0 && fallbackPos.yPct <= 100){
           s.active = true;
           setSlotTarget(s, fallbackPos.xPct, fallbackPos.yPct);
@@ -804,8 +890,14 @@
       if(t > 1) t = 1; else if(t < 0) t = 0;
       var x = s.fromX + (s.tgtX - s.fromX) * t;
       var y = s.fromY + (s.tgtY - s.fromY) * t;
-      if(x !== s.curX || y !== s.curY){
-        s.curX = x; s.curY = y;
+      s.curX = x; s.curY = y;
+      // compara com o que está de fato no DOM (drawnX/Y), não com curX:
+      // quando o ponto aparece ou teletransporta, curX já é o alvo, e
+      // comparar com ele fazia o ponto nunca ser posicionado (ficava
+      // parado no lugar antigo/canto - bomba largada, X de morte e
+      // jogadores parados no freezetime "sumiam" ou "congelavam").
+      if(x !== s.drawnX || y !== s.drawnY){
+        s.drawnX = x; s.drawnY = y;
         s.el.style.left = x + '%';
         s.el.style.top = y + '%';
       }
@@ -826,9 +918,12 @@
     $('scoreT').className = t.score >= ct.score ? 'lead' : 'trail';
     $('ctLabel').textContent = ct.teamName || 'COUNTER';
     $('trLabel').textContent = t.teamName || 'TERRORIST';
-    $('mapName').textContent = (state.map || '—').toUpperCase();
-    $('roundInfo').textContent = 'ROUND ' + (state.round || '—');
-    $('bombInfo').textContent = (state.bombState || '—').toUpperCase();
+    $('mapName').textContent = mapDisplayName(state.map);
+    // map.round do GSI = rounds já jogados; o round em andamento é o próximo
+    // (no fim da partida mostra o último jogado).
+    var playedRounds = ct.score + t.score;
+    var gameOver = (state.phase || '').toLowerCase() === 'gameover';
+    $('roundInfo').textContent = 'ROUND ' + (gameOver ? playedRounds : playedRounds + 1);
 
     // Timer de round / bomba. O servidor só manda o valor EXATO quando
     // alguém está espectando/observando (limitação do GSI da Valve).
@@ -859,7 +954,7 @@
       }
     }
 
-    trackRounds(ct.score, t.score);
+    trackRounds(ct.score, t.score, state.map);
     renderRibbon();
 
     var players = state.players || [];
@@ -867,19 +962,24 @@
     // "Morte grudenta": uma vez que o jogador morre, o card/ponto continua
     // marcado como morto até o round realmente virar - mesmo que o campo
     // de vida oscile ou demore a atualizar entre um poll e outro.
-    // Reset acontece em QUALQUER um destes casos (cobre reinício de
-    // partida, troca de mapa, mp_restartgame, etc - onde o número do
-    // round sozinho às vezes não muda ou volta pro mesmo valor):
-    //  1) a combinação mapa+round mudou
-    //  2) acabou de entrar em "freezetime" (sempre começo de round novo)
+    // O X de morte fica até o round SEGUINTE começar (não some no fim do
+    // round, quando o número do round já vira). Reset em qualquer um destes:
+    //  1) trocou de mapa
+    //  2) número do round diminuiu (mp_restartgame / partida nova)
+    //  3) entrou em "freezetime" (começo de round novo)
+    //  4) foi de "over" direto pra "live" (servidor sem freezetime)
     var phase = (state.roundPhase || '').toLowerCase();
-    var resetKey = (state.map || '') + '|' + state.round;
+    var mapKey = state.map || '';
     var enteredFreezetime = phase === 'freezetime' && lastRoundPhase !== 'freezetime';
-    if(resetKey !== lastDeathResetKey || enteredFreezetime){
+    var overToLive = phase === 'live' && lastRoundPhase === 'over';
+    var roundWentBack = lastDeathRound !== null && state.round < lastDeathRound;
+    if(mapKey !== lastDeathResetKey || roundWentBack || enteredFreezetime || overToLive){
       deadThisRound = {};
-      lastKnownPos = {};
-      lastDeathResetKey = resetKey;
+      deathPos = {};
+      lastAlivePos = {};
+      lastDeathResetKey = mapKey;
     }
+    lastDeathRound = state.round;
     lastRoundPhase = phase;
 
     // Time "inválido" (Undefined/Spectator) que às vezes aparece logo após
@@ -929,7 +1029,7 @@
       for(var k in cached) ghost[k] = cached[k];
       ghost.hudIndex = slotIdx;
       ghost.isDead = !!deadThisRound[ownerId];
-      ghost.position = null; // radar usa lastKnownPos pra morto; vivo sem posição some
+      ghost.position = null; // radar usa deathPos pra morto; vivo sem posição some
       players.push(ghost);
     }
 
@@ -957,7 +1057,7 @@
     $('scoreCT').className = ''; $('scoreT').className = '';
     $('ctLabel').textContent = 'COUNTER'; $('trLabel').textContent = 'TERRORIST';
     $('mapName').textContent = '—'; $('roundInfo').textContent = 'ROUND —';
-    $('bombInfo').textContent = '—'; $('scoreSep').textContent = ':';
+    $('scoreSep').textContent = ':';
     document.querySelector('.spine-main').classList.remove('bomb-planted');
 
     // ribbon de rounds
@@ -970,7 +1070,7 @@
     bombTracker = { planted: false, startedAt: 0 };
 
     // morte persistente
-    lastDeathResetKey = null; deadThisRound = {}; lastKnownPos = {};
+    lastDeathResetKey = null; lastDeathRound = null; deadThisRound = {}; deathPos = {}; lastAlivePos = {};
     lastPlayerData = {};
 
     // cards -> volta pros 5 slots "vazio" de cada lado
