@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "7zSRt6Vc+Rc=",
+  "dgSpecHash": "TavC9bAyN/o=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Vinic\\OneDrive\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\CS2HudExporter.csproj",
+  "projectFilePath": "D:\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\CS2HudExporter.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Vinic\\.nuget\\packages\\counterstrike2gsi\\1.0.4.2659\\counterstrike2gsi.1.0.4.2659.nupkg.sha512",
     "C:\\Users\\Vinic\\.nuget\\packages\\microsoft.csharp\\4.7.0\\microsoft.csharp.4.7.0.nupkg.sha512",

@@ -1,0 +1,6 @@
+# Saída de build do .NET: é gerada por "dotnet build/run" em cada máquina
+# e contém caminhos absolutos da máquina onde foi gerada.
+bin/
+obj/
+.vs/
+*.user
