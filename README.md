@@ -82,6 +82,8 @@ Conteúdo recomendado:
         "allplayers_match_stats"    "1"
         "allplayers_weapons"        "1"
         "allplayers_position"       "1"
+        "allgrenades"               "1"
+        "bomb"                      "1"
     }
 }
 ```
@@ -103,6 +105,20 @@ A HUD acessa automaticamente a API:
 ```text
 http://localhost:5000/api/hud
 ```
+
+### 3) Nomes e logos dos times (opcional)
+
+Abra no navegador:
+
+```text
+CS2Hud/control.html
+```
+
+Preencha o nome e a logo do time que está de **CT agora** e do que está de **TR agora** e clique em **Salvar**. A HUD passa a mostrar o nome no placar e a logo no lugar do ícone CT/TR, e o popup de vencedor do round usa esse nome e essa logo.
+
+- Na troca de lado (intervalo e overtime) o nome e a logo acompanham o time sozinhos, pelos jogadores de cada um. Se aparecerem trocados, use **Inverter lados**.
+- **Padrão** volta para COUNTER / TERRORIST com os ícones CT e TR.
+- A configuração fica salva em `CS2HudExporter/teams.json` (não vai para o git).
 
 ## Endpoints
 
@@ -129,6 +145,14 @@ Exemplo de resposta:
 
 Se ainda não houver dados do jogo, a API pode responder `204 No Content`.
 
+### Times (usados pelo `control.html`)
+
+- `GET /api/teams`: times configurados, pelo lado atual.
+- `POST /api/teams`: salva `{ "ct": { "name", "logo" }, "t": { "name", "logo" } }` (logo em data URL).
+- `POST /api/teams/swap`: inverte os lados manualmente.
+- `DELETE /api/teams`: volta ao padrão.
+- `GET /api/teams/logo/{id}`: imagem da logo.
+
 ## Funcionalidades
 
 - placar da partida
@@ -137,6 +161,8 @@ Se ainda não houver dados do jogo, a API pode responder `204 No Content`.
 - dados de jogadores
 - arsenal e utilitários
 - radar de posições (quando disponível em observação/espectador)
+- trajetória de utilitários, fumaças e fogo no radar
+- nomes e logos dos times (painel `control.html`) e popup de vencedor do round
 - HUD pronta para uso em navegador ou OBS
 
 ## Observações importantes

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS2 HUD — Times</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#131a22; --panel2:#1a232d;
+    --ct:#6E9EDA; --tr:#D9A441; --bone:#EDEFF2; --steel:#78848F;
+    --line:rgba(237,239,242,.13); --good:#6FCF97; --bad:#E0645A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--bone);font-family:'Barlow Condensed',sans-serif;
+    min-height:100vh;padding:32px 16px}
+  .wrap{max-width:880px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+  h1{font-family:'Anton',sans-serif;font-weight:400;font-size:32px;letter-spacing:.04em}
+  .status{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;color:var(--steel);
+    display:flex;align-items:center;gap:8px}
+  .status i{width:9px;height:9px;border-radius:50%;background:var(--bad)}
+  .status.on i{background:var(--good)}
+
+  /* prévia do cabeçalho da HUD */
+  .preview{background:rgba(9,13,18,.9);border:1px solid var(--line);height:72px;margin-bottom:24px;
+    display:grid;grid-template-columns:1fr 120px 1fr;align-items:center;padding:0 18px}
+  .pSide{display:flex;align-items:center;gap:10px;min-width:0}
+  .pSide.right{flex-direction:row-reverse}
+  .pTag{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.14em;
+    padding:4px 8px 3px;border:1px solid currentColor;line-height:1;flex:none}
+  .pTag.ct{color:var(--ct)} .pTag.tr{color:var(--tr)}
+  .pTag.logo{border:none;padding:0;width:40px;height:40px}
+  .pTag.logo img{width:100%;height:100%;object-fit:contain}
+  .pName{font-size:22px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pScore{font-family:'Anton',sans-serif;font-size:34px;text-align:center;color:var(--steel)}
+
+  .teams{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:640px){ .teams{grid-template-columns:1fr} }
+  .team{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--steel);padding:18px}
+  .team.ct{border-top-color:var(--ct)} .team.tr{border-top-color:var(--tr)}
+  .team h2{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.2em;
+    text-transform:uppercase;margin-bottom:14px}
+  .team.ct h2{color:var(--ct)} .team.tr h2{color:var(--tr)}
+  label{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--steel);margin:0 0 6px}
+  input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--bone);
+    font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;
+    padding:8px 12px;margin-bottom:16px;outline:none}
+  input[type=text]:focus{border-color:var(--bone)}
+  input[type=text]::placeholder{color:var(--steel);opacity:.7}
+  .logoRow{display:flex;align-items:center;gap:14px}
+  .logoBox{width:84px;height:84px;background:var(--panel2);border:1px dashed var(--line);flex:none;
+    display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;
+    font-size:14px;font-weight:700;letter-spacing:.14em}
+  .team.ct .logoBox{color:var(--ct)} .team.tr .logoBox{color:var(--tr)}
+  .logoBox img{max-width:100%;max-height:100%;object-fit:contain}
+  .logoBtns{display:flex;flex-direction:column;gap:8px}
+
+  button,.fileBtn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.1em;
+    text-transform:uppercase;padding:10px 16px;border:1px solid var(--line);background:var(--panel2);
+    color:var(--bone);cursor:pointer;text-align:center}
+  button:hover,.fileBtn:hover{border-color:var(--bone)}
+  .fileBtn input{display:none}
+  button.primary{background:var(--bone);color:var(--bg);border-color:var(--bone)}
+  button.primary:hover{background:#fff}
+  button:disabled{opacity:.4;cursor:default}
+
+  .actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+  .actions .spacer{flex:1}
+  .msg{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel);margin-top:14px;min-height:16px}
+  .msg.err{color:var(--bad)} .msg.ok{color:var(--good)}
+  .help{margin-top:28px;color:var(--steel);font-size:17px;line-height:1.45}
+  .help b{color:var(--bone);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>TIMES DA HUD</h1>
+    <div class="status" id="status"><i></i><span id="statusText">Conectando…</span></div>
+  </header>
+
+  <!-- como vai ficar o placar da HUD -->
+  <div class="preview">
+    <div class="pSide"><span class="pTag ct" id="pvCtTag">CT</span><span class="pName" id="pvCtName">COUNTER</span></div>
+    <div class="pScore" id="pvScore">0 : 0</div>
+    <div class="pSide right"><span class="pTag tr" id="pvTrTag">TR</span><span class="pName" id="pvTrName">TERRORIST</span></div>
+  </div>
+
+  <div class="teams">
+    <section class="team ct">
+      <h2>Time no lado CT agora</h2>
+      <label for="ctName">Nome</label>
+      <input type="text" id="ctName" maxlength="40" placeholder="COUNTER" autocomplete="off">
+      <label>Logo</label>
+      <div class="logoRow">
+        <div class="logoBox" id="ctLogoBox">CT</div>
+        <div class="logoBtns">
+          <label class="fileBtn">Escolher imagem<input type="file" id="ctFile" accept="image/*"></label>
+          <button type="button" id="ctClearLogo">Remover logo</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="team tr">
+      <h2>Time no lado TR agora</h2>
+      <label for="tName">Nome</label>
+      <input type="text" id="tName" maxlength="40" placeholder="TERRORIST" autocomplete="off">
+      <label>Logo</label>
+      <div class="logoRow">
+        <div class="logoBox" id="tLogoBox">TR</div>
+        <div class="logoBtns">
+          <label class="fileBtn">Escolher imagem<input type="file" id="tFile" accept="image/*"></label>
+          <button type="button" id="tClearLogo">Remover logo</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="saveBtn">Salvar</button>
+    <button id="swapBtn" title="Use se a HUD mostrar os times nos lados trocados">Inverter lados</button>
+    <span class="spacer"></span>
+    <button id="defaultBtn" title="Volta pra COUNTER / TERRORIST com os ícones CT e TR">Padrão</button>
+  </div>
+  <div class="msg" id="msg"></div>
+
+  <p class="help">
+    Preencha o time que está <b>jogando de CT agora</b> e o que está <b>de TR agora</b> e clique em <b>Salvar</b>.
+    Na troca de lado (intervalo e overtime) o nome e a logo acompanham o time sozinhos, pelos jogadores de cada um.
+    Se algum dia aparecerem trocados, clique em <b>Inverter lados</b>. Um lado sem nome e sem logo usa o padrão da HUD.
+    O CS2HudExporter precisa estar rodando.
+  </p>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var API_BASE = 'http://localhost:5000';
+  var LOGO_MAX_PX = 256; // logo é redimensionada antes de enviar (fica leve pra HUD)
+  var $ = function(id){ return document.getElementById(id); };
+
+  // estado do formulário: side 'ct' | 't'
+  var form = { ct: { name: '', logo: '' }, t: { name: '', logo: '' } };
+  var dirty = false; // editou e ainda não salvou: não sobrescreve com o servidor
+
+  function setMsg(text, kind){
+    var el = $('msg');
+    el.textContent = text || '';
+    el.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  function setStatus(online, text){
+    $('status').className = 'status' + (online ? ' on' : '');
+    $('statusText').textContent = text;
+  }
+
+  function renderForm(){
+    ['ct', 't'].forEach(function(side){
+      var tagText = side === 'ct' ? 'CT' : 'TR';
+      if(document.activeElement !== $(side + 'Name')) $(side + 'Name').value = form[side].name;
+      var box = $(side + 'LogoBox');
+      box.innerHTML = '';
+      if(form[side].logo){
+        var img = document.createElement('img'); img.src = form[side].logo; box.appendChild(img);
+      } else {
+        box.textContent = tagText;
+      }
+      $(side + 'ClearLogo').disabled = !form[side].logo;
+    });
+    renderPreview();
+  }
+
+  function renderPreview(){
+    [['ct', 'pvCtTag', 'pvCtName', 'CT', 'COUNTER'], ['t', 'pvTrTag', 'pvTrName', 'TR', 'TERRORIST']].forEach(function(r){
+      var side = r[0], tag = $(r[1]), cls = side === 'ct' ? 'ct' : 'tr';
+      $(r[2]).textContent = form[side].name.trim() || r[4];
+      tag.innerHTML = '';
+      if(form[side].logo){
+        tag.className = 'pTag logo ' + cls;
+        var img = document.createElement('img'); img.src = form[side].logo; tag.appendChild(img);
+      } else {
+        tag.className = 'pTag ' + cls;
+        tag.textContent = r[3];
+      }
+    });
+  }
+
+  function fromServer(data){
+    form.ct = { name: (data.ct && data.ct.name) || '', logo: (data.ct && data.ct.logo) || '' };
+    form.t = { name: (data.t && data.t.name) || '', logo: (data.t && data.t.logo) || '' };
+    dirty = false;
+    renderForm();
+  }
+
+  function request(method, path, body){
+    return fetch(API_BASE + path, {
+      method: method,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function(res){
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    });
+  }
+
+  // lê o que está salvo (e o lado atual de cada time) de tempos em tempos,
+  // pra refletir a troca de lado do intervalo sem precisar recarregar
+  function refresh(){
+    request('GET', '/api/teams').then(function(data){
+      setStatus(true, 'Exportador conectado');
+      if(!dirty) fromServer(data);
+    }).catch(function(){
+      setStatus(false, 'Exportador offline (localhost:5000)');
+    });
+    fetch(API_BASE + '/api/hud', { cache: 'no-store' }).then(function(res){
+      return res.status === 200 ? res.json() : null;
+    }).then(function(s){
+      if(s && s.scoreboard) $('pvScore').textContent = s.scoreboard.ct.score + ' : ' + s.scoreboard.t.score;
+    }).catch(function(){});
+  }
+
+  // imagem -> PNG de no máximo LOGO_MAX_PX, como data URL
+  function loadLogo(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onerror = function(){ reject(new Error('não consegui ler o arquivo')); };
+      reader.onload = function(){
+        var img = new Image();
+        img.onerror = function(){ reject(new Error('arquivo não é uma imagem válida')); };
+        img.onload = function(){
+          var w = img.naturalWidth || LOGO_MAX_PX, h = img.naturalHeight || LOGO_MAX_PX;
+          var k = Math.min(1, LOGO_MAX_PX / Math.max(w, h));
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(w * k));
+          canvas.height = Math.max(1, Math.round(h * k));
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  ['ct', 't'].forEach(function(side){
+    $(side + 'Name').addEventListener('input', function(){
+      form[side].name = this.value;
+      dirty = true;
+      renderPreview();
+    });
+    $(side + 'File').addEventListener('change', function(){
+      var file = this.files && this.files[0];
+      this.value = '';
+      if(!file) return;
+      loadLogo(file).then(function(dataUrl){
+        form[side].logo = dataUrl;
+        dirty = true;
+        renderForm();
+        setMsg('Logo carregada. Clique em Salvar pra aplicar na HUD.');
+      }).catch(function(err){ setMsg('Erro: ' + err.message, 'err'); });
+    });
+    $(side + 'ClearLogo').addEventListener('click', function(){
+      form[side].logo = '';
+      dirty = true;
+      renderForm();
+    });
+  });
+
+  $('saveBtn').addEventListener('click', function(){
+    var body = {
+      ct: { name: form.ct.name.trim(), logo: form.ct.logo },
+      t: { name: form.t.name.trim(), logo: form.t.logo }
+    };
+    request('POST', '/api/teams', body).then(function(data){
+      fromServer(data);
+      setMsg('Salvo! A HUD já está usando.', 'ok');
+    }).catch(function(){ setMsg('Não consegui salvar: o CS2HudExporter está rodando?', 'err'); });
+  });
+
+  $('swapBtn').addEventListener('click', function(){
+    request('POST', '/api/teams/swap').then(function(data){
+      fromServer(data);
+      setMsg('Lados invertidos.', 'ok');
+    }).catch(function(){ setMsg('Não consegui inverter: o CS2HudExporter está rodando?', 'err'); });
+  });
+
+  $('defaultBtn').addEventListener('click', function(){
+    request('DELETE', '/api/teams').then(function(data){
+      fromServer(data);
+      setMsg('Voltou pro padrão (COUNTER / TERRORIST).', 'ok');
+    }).catch(function(){ setMsg('Não consegui limpar: o CS2HudExporter está rodando?', 'err'); });
+  });
+
+  renderForm();
+  refresh();
+  setInterval(refresh, 3000);
+})();
+</script>
+</body>
+</html>

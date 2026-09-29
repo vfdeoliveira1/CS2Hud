@@ -4,3 +4,6 @@ bin/
 obj/
 .vs/
 *.user
+
+# Times configurados no control.html (dados locais de cada máquina)
+teams.json

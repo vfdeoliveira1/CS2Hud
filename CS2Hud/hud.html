@@ -37,8 +37,24 @@
   .tag{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
        letter-spacing:.14em;padding:4px 8px 3px;border:1px solid currentColor;line-height:1}
   .tag.ct{color:var(--ct)} .tag.tr{color:var(--tr)}
+  /* logo do time no lugar do "CT"/"TR" */
+  .tag.logo{border:none;padding:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center}
+  .tag.logo img{max-width:100%;max-height:100%;object-fit:contain}
+
+  /* ---------------- popup de vencedor do round ---------------- */
+  .roundWin{position:absolute;top:150px;left:50%;transform:translate(-50%,-12px);
+    display:flex;align-items:center;gap:16px;padding:14px 34px 14px 22px;min-width:420px;
+    color:#0b0f14;opacity:0;pointer-events:none;transition:opacity .3s ease,transform .3s ease;
+    clip-path:polygon(0 0,100% 0,calc(100% - 18px) 100%,18px 100%);box-shadow:0 8px 30px rgba(0,0,0,.45)}
+  .roundWin.show{opacity:1;transform:translate(-50%,0)}
+  .roundWin.ct{background:var(--ct)} .roundWin.tr{background:var(--tr)}
+  .roundWin .rwLogo{width:56px;height:56px;object-fit:contain;display:none}
+  .roundWin .rwText{display:flex;flex-direction:column;align-items:flex-start;line-height:1}
+  .roundWin .rwName{font-family:'Anton',sans-serif;font-size:40px;letter-spacing:.03em;text-transform:uppercase}
+  .roundWin .rwSub{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.22em;
+    text-transform:uppercase;margin-top:6px;opacity:.8}
   .lbl{font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
-  .midCol{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+  .midCol{display:flex;align-items:center;justify-content:center;width:100%;height:100%;position:relative}
   .scoreCol{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
   .roundLbl{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
       letter-spacing:.22em;color:var(--steel);text-transform:uppercase;line-height:1}
@@ -46,14 +62,19 @@
          font-family:'Anton',sans-serif;font-size:56px;line-height:1}
   .score .sep{font-size:22px;color:var(--steel);transform:translateY(-4px);
       font-family:'JetBrains Mono',monospace;letter-spacing:.02em}
-  .bombRow{display:none;flex-direction:column;align-items:center;justify-content:center;
-      gap:5px;width:100%;height:100%}
-  .bombRow img{width:24px;height:24px}
-  .bombBar{width:150px;height:6px;background:rgba(255,255,255,.15);position:relative;overflow:hidden}
-  .bombBar i{position:absolute;top:0;left:0;bottom:0;background:var(--bad);width:0%;transition:width .25s linear}
-  .bombTime{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--bad);letter-spacing:.05em}
-  .spine-main.bomb-planted .scoreCol{display:none}
-  .spine-main.bomb-planted .bombRow{display:flex}
+  /* barras da bomba: ficam logo abaixo do placar (que continua visível).
+     Vermelha = tempo até explodir; azul = progresso do defuse. */
+  .bombBars{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:170px;
+      display:none;flex-direction:column;gap:3px}
+  .bombBar{width:100%;height:5px;background:rgba(255,255,255,.15);position:relative;overflow:hidden}
+  .bombBar i{position:absolute;top:0;left:0;bottom:0;width:0%;transition:width .25s linear}
+  #bombBarFill{background:var(--bad)}
+  #defuseBarFill{background:var(--ct)}
+  #defuseBar{display:none}
+  .spine-main.bomb-planted .bombBars{display:flex}
+  .spine-main.bomb-planted .scoreCol{transform:translateY(-5px)}
+  .spine-main.defusing #defuseBar{display:block}
+  .spine-main.defusing .scoreCol{transform:translateY(-8px)}
   .score .lead{color:#fff} .score .trail{color:var(--steel)}
   .ribbon{display:flex;gap:3px;margin-top:7px;height:8px}
   .ribbon u{width:10px;display:block;text-decoration:none}
@@ -152,6 +173,24 @@
     50%,100%{opacity:.15}
   }
 
+  /* ---------------- utilitários no radar ---------------- */
+  /* camada das trajetórias (SVG em coordenadas 0-100 do radar) e dos
+     ícones de fumaça/fogo. Fica abaixo dos pontos dos jogadores. */
+  .utilLayer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  .utilLayer polyline{fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;
+    vector-effect:non-scaling-stroke}
+  .utilLayer circle.head{vector-effect:non-scaling-stroke}
+  .util{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;
+    border-radius:50%;pointer-events:none}
+  .util img,.util svg{width:62%;height:62%;object-fit:contain}
+  /* fumaça: círculo cinza do tamanho aproximado da fumaça + ícone de nuvem */
+  .util.smoke{background:rgba(205,211,217,.55);border:1px solid rgba(255,255,255,.75)}
+  .util.smoke svg{fill:#fff;filter:drop-shadow(0 0 1px rgba(0,0,0,.8))}
+  /* fogo: círculo laranja translúcido cobrindo os focos + ícone de fogo */
+  .util.fire{background:rgba(255,110,30,.35);border:1px solid rgba(255,150,60,.9)}
+  .util.fire img{filter:brightness(0) saturate(100%) invert(62%) sepia(83%) saturate(2270%) hue-rotate(349deg) brightness(101%) contrast(101%)
+    drop-shadow(0 0 1px rgba(0,0,0,.9))}
+
   /* ---------------- painel "espectando agora" ---------------- */
   .specPanel{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
     display:none;align-items:center;gap:16px;background:var(--bg-soft);backdrop-filter:blur(5px);
@@ -184,7 +223,7 @@
 
   <div class="spine">
     <div class="spine-main">
-      <div class="side left"><span class="tag ct">CT</span><span class="lbl" id="ctLabel">COUNTER</span></div>
+      <div class="side left"><span class="tag ct" id="ctTag">CT</span><span class="lbl" id="ctLabel">COUNTER</span></div>
       <div class="midCol">
         <div class="scoreCol">
           <div class="roundLbl" id="roundInfo">ROUND —</div>
@@ -194,15 +233,19 @@
             <span id="scoreT">0</span>
           </div>
         </div>
-        <div class="bombRow" id="bombRow">
-          <img src="./icons/planted_c4.svg" class="ic" style="filter:none" onerror="this.style.display='none'">
+        <div class="bombBars">
           <div class="bombBar"><i id="bombBarFill"></i></div>
-          <div class="bombTime" id="bombTime">0:40</div>
+          <div class="bombBar" id="defuseBar"><i id="defuseBarFill"></i></div>
         </div>
       </div>
-      <div class="side right"><span class="tag tr">TR</span><span class="lbl" id="trLabel">TERRORIST</span></div>
+      <div class="side right"><span class="tag tr" id="trTag">TR</span><span class="lbl" id="trLabel">TERRORIST</span></div>
     </div>
     <div class="ribbon" id="ribbon"></div>
+  </div>
+
+  <div class="roundWin" id="roundWin">
+    <img class="rwLogo" id="rwLogo" alt="">
+    <div class="rwText"><span class="rwName" id="rwName">—</span><span class="rwSub" id="rwSub">venceu o round</span></div>
   </div>
 
   <div id="connWarn">Sem conexão com http://localhost:5000/api/hud — o CS2HudExporter está rodando?</div>
@@ -214,6 +257,8 @@
   <div class="radarBox" id="radarBox">
     <img class="mapImg" id="radarMapImg" alt="">
     <div class="grid" id="radarGrid"></div>
+    <svg class="utilLayer" id="utilTrails" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+    <div class="utilLayer" id="utilIcons"></div>
     <div class="hint" id="radarHint">Posições só chegam quando você está<br>espectando a partida (allplayers_position)</div>
   </div>
   <div class="specPanel" id="specPanel">
@@ -243,7 +288,9 @@
   // =====================================================================
   // CONFIGURAÇÃO
   // =====================================================================
-  var API_URL = 'http://localhost:5000/api/hud';
+  var API_BASE = 'http://localhost:5000';
+  var API_URL = API_BASE + '/api/hud';
+  var ROUND_WIN_POPUP_MS = 4000; // quanto tempo o popup de vencedor do round fica na tela
   var POLL_MS = 33; // ~30x/s: pega cada pacote novo do CS2 logo que chega (a fluidez em si vem do requestAnimationFrame do radar)
   var SAME_STATE_RENDER_MS = 200; // se o JSON não mudou, re-renderiza no máximo a cada 200ms (só pros timers estimados andarem)
   var ICONS_PATH = './icons/';
@@ -299,7 +346,7 @@
     // que você não baixou), cai pro genérico em vez de ficar quebrado.
     if(img.dataset.fallback) { img.style.visibility = 'hidden'; return; }
     img.dataset.fallback = '1';
-    img.src = ICONS_PATH + 'melee.svg';
+    img.src = ICONS_PATH + 'knife.svg'; // genérico que existe na pasta icons/
   }
 
   function makeIcon(src, cls){
@@ -486,7 +533,8 @@
   // ---- rastreador local de fase, pra estimar o timer quando o servidor
   // não manda o valor exato (o que só acontece espectando/GOTV) ----
   var phaseTracker = { name: null, startedAt: 0 };
-  var bombTracker = { planted: false, startedAt: 0 };
+  var bombTracker = { planted: false, startedAt: 0, explodeAt: 0 };
+  var defuseTracker = { active: false, startedAt: 0, total: 0, endAt: 0 };
 
   function updateTrackers(state){
     var phase = (state.roundPhase || '').toLowerCase();
@@ -498,7 +546,72 @@
     if(planted !== bombTracker.planted){
       bombTracker.planted = planted;
       bombTracker.startedAt = Date.now();
+      bombTracker.explodeAt = 0;
     }
+  }
+
+  // ---- barras da bomba plantada (vermelha) e do defuse (azul) ----
+  // O GSI manda bomb.countdown: com a bomba "planted" é o tempo até
+  // explodir; com "defusing" é o tempo que falta pro defuse terminar
+  // (só espectando). Sem isso, estimamos pelo relógio local.
+  var DEFUSE_SECONDS = 10, DEFUSE_KIT_SECONDS = 5;
+
+  function updateBombBars(state, serverLeft){
+    var now = Date.now();
+    var bomb = state.bomb || {};
+    var bState = (bomb.state || '').toLowerCase();
+    var countdown = typeof bomb.countdown === 'number' && bomb.countdown > 0 ? bomb.countdown : null;
+    var phaseName = (state.phaseCountdownName || '').toLowerCase();
+
+    // hora da explosão: valor do jogo quando existe, senão a estimativa
+    if(bState === 'planted' && countdown !== null) bombTracker.explodeAt = now + countdown * 1000;
+    else if(phaseName === 'bomb' && serverLeft !== null) bombTracker.explodeAt = now + serverLeft * 1000;
+    else if(!bombTracker.explodeAt) bombTracker.explodeAt = bombTracker.startedAt + BOMB_TOTAL_SECONDS * 1000;
+    var left = Math.max(0, (bombTracker.explodeAt - now) / 1000);
+    $('bombBarFill').style.width = Math.min(100, Math.max(0, (BOMB_TOTAL_SECONDS - left) / BOMB_TOTAL_SECONDS * 100)) + '%';
+
+    var mainBar = document.querySelector('.spine-main');
+    if(bState !== 'defusing'){
+      if(defuseTracker.active){
+        defuseTracker.active = false;
+        mainBar.classList.remove('defusing');
+        var fill = $('defuseBarFill');
+        fill.style.transition = 'none'; fill.style.width = '0%'; // próximo defuse começa do zero
+      }
+      return;
+    }
+
+    if(!defuseTracker.active){
+      defuseTracker = { active: true, startedAt: now, total: 0, endAt: 0 };
+      $('defuseBarFill').style.transition = '';
+      mainBar.classList.add('defusing');
+    }
+    var defuseLeft = countdown !== null ? countdown
+      : (phaseName === 'defuse' && serverLeft !== null ? serverLeft : null);
+    if(defuseLeft !== null){
+      // 1º valor define se é com kit (5s) ou sem (10s)
+      if(!defuseTracker.total) defuseTracker.total = defuseLeft > DEFUSE_KIT_SECONDS + 0.5 ? DEFUSE_SECONDS : DEFUSE_KIT_SECONDS;
+      defuseTracker.endAt = now + defuseLeft * 1000;
+    } else if(!defuseTracker.total){
+      defuseTracker.total = defuserHasKit(state) ? DEFUSE_KIT_SECONDS : DEFUSE_SECONDS;
+      defuseTracker.endAt = defuseTracker.startedAt + defuseTracker.total * 1000;
+    }
+    var remaining = Math.max(0, (defuseTracker.endAt - now) / 1000);
+    $('defuseBarFill').style.width = Math.min(100, Math.max(0, (1 - remaining / defuseTracker.total) * 100)) + '%';
+  }
+
+  // Sem contador do jogo: supõe que quem está desarmando é o CT vivo mais
+  // perto da bomba, e usa o kit dele.
+  function defuserHasKit(state){
+    var bp = state.bomb && state.bomb.position;
+    var best = null, bestD = Infinity;
+    (state.players || []).forEach(function(p){
+      if(p.team !== 'CT' || p.health <= 0) return;
+      var pos = p.position;
+      var d = (bp && pos && !(pos.x === 0 && pos.y === 0)) ? Math.hypot(pos.x - bp.x, pos.y - bp.y) : Infinity;
+      if(best === null || d < bestD){ best = p; bestD = d; }
+    });
+    return !!(best && best.hasDefuseKit);
   }
 
   // Segundos restantes estimados desde que a fase começou (client-side).
@@ -510,6 +623,7 @@
   // Histórico salvo no navegador (localStorage), por isso sobrevive ao F5.
   // Chave única; guarda de qual mapa é e o placar no momento.
   var HISTORY_KEY = 'cs2hud.roundHistory';
+  var roundsPrimed = false;
   var historyMap = null;
 
   function saveHistory(){
@@ -548,8 +662,12 @@
       history = []; lastCT = 0; lastT = 0; historyMap = mapName;
       changed = true;
     }
-    if(ct - lastCT === 1 && t === lastT){ history.push('ct'); changed = true; }
-    else if(t - lastT === 1 && ct === lastCT){ history.push('tr'); changed = true; }
+    var winner = null;
+    if(ct - lastCT === 1 && t === lastT){ history.push('ct'); changed = true; winner = 'ct'; }
+    else if(t - lastT === 1 && ct === lastCT){ history.push('tr'); changed = true; winner = 'tr'; }
+    // popup só pra round que a HUD viu acabar (não no primeiro dado após abrir/F5)
+    if(winner && roundsPrimed) showRoundWinner(winner, ct + t);
+    roundsPrimed = true;
     // rounds que passaram sem a HUD ver (estava fechada / pulou vários):
     // marcador cinza, pra divisória do intervalo continuar no lugar certo
     while(history.length < ct + t){ history.push('unk'); changed = true; }
@@ -583,6 +701,64 @@
         box.appendChild(sep);
       }
     });
+  }
+
+  // =====================================================================
+  // TIMES (nome + logo, configurados no control.html) e POPUP DE ROUND
+  // =====================================================================
+  var DEFAULT_TEAM = {
+    ct: { label: 'COUNTER', full: 'COUNTER-TERRORIST', tag: 'CT' },
+    tr: { label: 'TERRORIST', full: 'TERRORIST', tag: 'TR' }
+  };
+  var currentTeams = { ct: null, tr: null }; // {name, logoUrl} ou null (= padrão)
+
+  function applyTeams(teamsCfg, gsiNames){
+    teamsCfg = teamsCfg || {};
+    currentTeams.ct = teamsCfg.ct || null;
+    currentTeams.tr = teamsCfg.t || null;
+    ['ct', 'tr'].forEach(function(side){
+      var cfg = currentTeams[side];
+      // nome do painel > nome que o próprio jogo manda (torneios) > padrão
+      var gsiName = gsiNames[side];
+      if(gsiName === 'CT' || gsiName === 'T') gsiName = ''; // exportador usa isso quando não há nome
+      var name = (cfg && cfg.name) || gsiName || DEFAULT_TEAM[side].label;
+      var lbl = $(side + 'Label');
+      if(lbl.textContent !== name) lbl.textContent = name;
+
+      // logo no lugar do "CT"/"TR" - só mexe no DOM se mudou (senão a
+      // imagem recarregaria a cada atualização)
+      var tag = $(side + 'Tag');
+      var logo = cfg && cfg.logoUrl ? API_BASE + cfg.logoUrl : '';
+      if(tag.dataset.logo === logo) return;
+      tag.dataset.logo = logo;
+      if(logo){
+        tag.className = 'tag logo ' + side;
+        tag.innerHTML = '';
+        var img = document.createElement('img');
+        img.src = logo;
+        img.onerror = function(){ tag.dataset.logo = ''; tag.className = 'tag ' + side; tag.textContent = DEFAULT_TEAM[side].tag; };
+        tag.appendChild(img);
+      } else {
+        tag.className = 'tag ' + side;
+        tag.textContent = DEFAULT_TEAM[side].tag;
+      }
+    });
+  }
+
+  var roundWinTimer = null;
+  function showRoundWinner(side, roundNumber){
+    var cfg = currentTeams[side];
+    var box = $('roundWin');
+    $('rwName').textContent = (cfg && cfg.name) || DEFAULT_TEAM[side].full;
+    $('rwSub').textContent = 'venceu o round ' + roundNumber;
+    var logo = $('rwLogo');
+    if(cfg && cfg.logoUrl){ logo.src = API_BASE + cfg.logoUrl; logo.style.display = 'block'; }
+    else { logo.removeAttribute('src'); logo.style.display = 'none'; }
+    box.className = 'roundWin ' + side;
+    void box.offsetWidth; // reinicia a animação se dois rounds vierem seguidos
+    box.classList.add('show');
+    clearTimeout(roundWinTimer);
+    roundWinTimer = setTimeout(function(){ box.classList.remove('show'); }, ROUND_WIN_POPUP_MS);
   }
 
   // "de_dust2" -> "DUST2"
@@ -689,6 +865,12 @@
   }
 
   var lastRadarMap = null;
+  // O GSI às vezes manda um pacote sem as posições (acontece muito ao trocar
+  // de jogador na câmera). Em vez de reagir na hora (aviso piscando, pontos
+  // sumindo e voltando), toleramos essas falhas curtas:
+  var POS_GRACE_MS = 1500;   // ponto vivo sem posição continua no último lugar por até isso
+  var HINT_DELAY_MS = 2500;  // aviso "Posições só chegam..." só aparece depois disso sem NENHUMA posição
+  var lastAnyPosAt = 0;
   var BOMB_SLOT = 10; // índice reservado no array radarSlots pro marcador da bomba (não é jogador)
 
   // Cria os 10 pontos de jogador (0-9) + 1 slot extra pra bomba, uma
@@ -712,7 +894,7 @@
 
       box.appendChild(el);
       radarSlots.push({ el: el, numEl: num, iconEl: icon, curX: 50, curY: 50, tgtX: 50, tgtY: 50, fromX: 50, fromY: 50,
-        lastUpdateAt: 0, interval: 100, visible: false, active: false, drawnX: null, drawnY: null });
+        lastUpdateAt: 0, interval: 100, visible: false, active: false, drawnX: null, drawnY: null, lastPosAt: 0 });
     }
   })();
 
@@ -742,13 +924,15 @@
       radarSlots.forEach(function(s){ s.active = false; });
       return;
     }
-    if(!withPos.length){
+    var nowMs = performance.now();
+    if(withPos.length) lastAnyPosAt = nowMs;
+    if(!withPos.length && nowMs - lastAnyPosAt > HINT_DELAY_MS){
       hint.style.display = 'flex';
       hint.textContent = 'Posições só chegam quando você está espectando a partida (allplayers_position)';
       // IMPORTANTE: sem "return" aqui - mesmo sem ninguém reportando
       // posição AGORA, o loop abaixo ainda pode desenhar o X de quem
       // morreu usando a posição gravada na morte (deathPos).
-    } else {
+    } else if(withPos.length){
       hint.style.display = 'none';
     }
 
@@ -790,12 +974,19 @@
       }
 
       var worldPos = p.isDead ? deathPos[p.steamId] : (hasPos ? p.position : null);
-      if(!worldPos){ slot.active = false; return; }
+      if(!worldPos){
+        // pacote sem posição: se o ponto estava visível há pouco, mantém
+        // parado no último lugar em vez de sumir e voltar (evita piscar)
+        if(slot.active && nowMs - slot.lastPosAt < POS_GRACE_MS) seen[p.hudIndex] = true;
+        else slot.active = false;
+        return;
+      }
 
       var pos = worldToRadarPct(worldPos.x, worldPos.y, mapName);
       if(!pos || pos.xPct < 0 || pos.xPct > 100 || pos.yPct < 0 || pos.yPct > 100){ slot.active = false; return; }
 
       slot.active = true;
+      slot.lastPosAt = nowMs;
       setSlotTarget(slot, pos.xPct, pos.yPct);
 
       if(p.isDead){
@@ -838,6 +1029,8 @@
           return;
         }
       }
+      // jogador sumiu da lista neste pacote: mesma tolerância de cima
+      if(s.active && nowMs - s.lastPosAt < POS_GRACE_MS) return;
       s.active = false;
     });
 
@@ -868,6 +1061,129 @@
     } else {
       bombSlot.active = false;
     }
+  }
+
+  // =====================================================================
+  // UTILITÁRIOS NO RADAR (trajetória + fumaça + fogo)
+  // =====================================================================
+  // Vem do nó "grenades" do GSI (via exportador). Cada granada tem um id
+  // estável enquanto existe; guardamos os pontos por onde ela passou pra
+  // desenhar a trajetória. Tipos do GSI: smoke, flashbang, frag, decoy,
+  // firebomb (molotov/incendiária em voo) e inferno (o fogo queimando).
+  var UTIL_COLORS = {
+    smoke: '#D6DBE0', flashbang: '#FFF3A0', frag: '#E0645A',
+    firebomb: '#FF8A3D', decoy: '#8FD18F'
+  };
+  var TRAIL_LINGER_MS = 2500;  // trajetória continua visível depois que a granada para/some
+  var UTIL_GRACE_MS = 1500;    // pacote sem a granada (troca de câmera etc) não apaga na hora
+  var SMOKE_MAX_MS = 22000;    // trava de segurança: fumaça do CS2 dura ~20s
+  var SMOKE_RADIUS_UNITS = 144; // raio aproximado da fumaça no jogo
+  var utilState = {};          // id -> {type, trail[], lastSeenAt, stoppedAt, poppedAt, pos, radiusPct}
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var SMOKE_ICON = '<svg viewBox="0 0 24 24"><path d="M6.5 19a4.5 4.5 0 0 1-.9-8.9A6 6 0 0 1 17.3 8.6 4.5 4.5 0 0 1 17.5 19z"/></svg>';
+
+  function clearUtility(){
+    utilState = {};
+    $('utilTrails').innerHTML = '';
+    $('utilIcons').innerHTML = '';
+  }
+
+  function updateUtility(grenades, mapName){
+    var cal = RADAR_CAL[mapName];
+    var now = performance.now();
+    if(!cal){ clearUtility(); return; }
+
+    grenades.forEach(function(g){
+      if(!g || !g.id) return;
+      var type = (g.type || '').toLowerCase();
+      var u = utilState[g.id];
+      if(!u) u = utilState[g.id] = { type: type, trail: [], lastSeenAt: now, stoppedAt: 0, poppedAt: 0, pos: null, radiusPct: 0 };
+      u.type = type;
+      u.lastSeenAt = now;
+
+      if(type === 'inferno'){
+        // centro e raio a partir dos focos de fogo
+        var flames = (g.flames || []).map(function(f){ return worldToRadarPct(f.x, f.y, mapName); }).filter(Boolean);
+        if(!flames.length && g.position) flames = [worldToRadarPct(g.position.x, g.position.y, mapName)];
+        if(!flames.length) return;
+        var cx = 0, cy = 0;
+        flames.forEach(function(f){ cx += f.xPct; cy += f.yPct; });
+        cx /= flames.length; cy /= flames.length;
+        var r = 0;
+        flames.forEach(function(f){ r = Math.max(r, Math.hypot(f.xPct - cx, f.yPct - cy)); });
+        u.pos = { x: cx, y: cy };
+        u.radiusPct = r + 1.2; // + raio de um foco
+        return;
+      }
+
+      var p = g.position && worldToRadarPct(g.position.x, g.position.y, mapName);
+      if(!p) return;
+      u.pos = { x: p.xPct, y: p.yPct };
+      var v = g.velocity || { x: 0, y: 0, z: 0 };
+      var moving = Math.abs(v.x) + Math.abs(v.y) + Math.abs(v.z) > 1;
+      var last = u.trail[u.trail.length - 1];
+      if(!last || Math.hypot(last.x - p.xPct, last.y - p.yPct) > 0.25) u.trail.push({ x: p.xPct, y: p.yPct });
+      if(moving) u.stoppedAt = 0;
+      else if(!u.stoppedAt) u.stoppedAt = now;
+
+      if(type === 'smoke' && g.effectTime > 0 && !u.poppedAt){
+        u.poppedAt = now - g.effectTime * 1000;
+        u.radiusPct = SMOKE_RADIUS_UNITS / (cal.scale * 1024) * 100;
+      }
+    });
+  }
+
+  function drawUtility(){
+    var now = performance.now();
+    var trails = $('utilTrails'), icons = $('utilIcons');
+    trails.innerHTML = '';
+    icons.innerHTML = '';
+    var boxPx = $('radarBox').clientWidth || 340;
+
+    Object.keys(utilState).forEach(function(id){
+      var u = utilState[id];
+      var missingFor = now - u.lastSeenAt;
+      var gone = missingFor > UTIL_GRACE_MS;
+
+      // ---- trajetória (tudo menos o fogo em si) ----
+      var trailEndAt = gone ? u.lastSeenAt : (u.stoppedAt || 0);
+      var trailAlive = !trailEndAt || now - trailEndAt < TRAIL_LINGER_MS;
+      if(u.type !== 'inferno' && u.trail.length > 1 && trailAlive){
+        var color = UTIL_COLORS[u.type] || '#EDEFF2';
+        var line = document.createElementNS(SVG_NS, 'polyline');
+        line.setAttribute('points', u.trail.map(function(pt){ return pt.x.toFixed(2) + ',' + pt.y.toFixed(2); }).join(' '));
+        line.setAttribute('stroke', color);
+        line.style.opacity = trailEndAt ? String(Math.max(0, 1 - (now - trailEndAt) / TRAIL_LINGER_MS) * 0.9) : '0.9';
+        trails.appendChild(line);
+        if(!trailEndAt){
+          // "cabeça": onde a granada está agora
+          var head = u.trail[u.trail.length - 1];
+          var c = document.createElementNS(SVG_NS, 'circle');
+          c.setAttribute('class', 'head');
+          c.setAttribute('cx', head.x); c.setAttribute('cy', head.y); c.setAttribute('r', 0.9);
+          c.setAttribute('fill', color);
+          trails.appendChild(c);
+        }
+      }
+
+      // ---- ícone de fumaça (depois que estoura) / fogo ----
+      var showSmoke = u.type === 'smoke' && u.poppedAt && !gone && now - u.poppedAt < SMOKE_MAX_MS;
+      var showFire = u.type === 'inferno' && !gone && u.pos;
+      if(showSmoke || showFire){
+        var el = document.createElement('div');
+        el.className = 'util ' + (showSmoke ? 'smoke' : 'fire');
+        var sizePx = Math.max(20, u.radiusPct * 2 / 100 * boxPx);
+        el.style.width = el.style.height = sizePx + 'px';
+        el.style.left = u.pos.x + '%';
+        el.style.top = u.pos.y + '%';
+        if(showSmoke) el.innerHTML = SMOKE_ICON;
+        else { var img = document.createElement('img'); img.src = ICONS_PATH + 'inferno.svg'; el.appendChild(img); }
+        icons.appendChild(el);
+      }
+
+      // esquece de vez quando não há mais nada pra desenhar
+      if(gone && !trailAlive) delete utilState[id];
+    });
   }
 
   // Loop de desenho, independente da rede - roda no refresh rate do
@@ -902,8 +1218,11 @@
         s.el.style.top = y + '%';
       }
     }
+    // utilitários: redesenha a ~20fps (suficiente pro fade das trajetórias)
+    if(now - lastUtilDrawAt > 50){ lastUtilDrawAt = now; drawUtility(); }
     requestAnimationFrame(radarAnimLoop);
   }
+  var lastUtilDrawAt = 0;
   requestAnimationFrame(radarAnimLoop);
 
   // =====================================================================
@@ -916,8 +1235,7 @@
     $('scoreT').textContent = t.score;
     $('scoreCT').className = ct.score >= t.score ? 'lead' : 'trail';
     $('scoreT').className = t.score >= ct.score ? 'lead' : 'trail';
-    $('ctLabel').textContent = ct.teamName || 'COUNTER';
-    $('trLabel').textContent = t.teamName || 'TERRORIST';
+    applyTeams(state.teams, { ct: ct.teamName, tr: t.teamName });
     $('mapName').textContent = mapDisplayName(state.map);
     // map.round do GSI = rounds já jogados; o round em andamento é o próximo
     // (no fim da partida mostra o último jogado).
@@ -938,12 +1256,12 @@
 
     if(bombPlanted){
       mainBar.classList.add('bomb-planted');
-      var left = serverLeft !== null ? serverLeft : estimatedSecondsLeft(bombTracker, BOMB_TOTAL_SECONDS);
-      var pct = Math.min(100, Math.max(0, ((BOMB_TOTAL_SECONDS - left) / BOMB_TOTAL_SECONDS) * 100));
-      $('bombBarFill').style.width = pct + '%';
-      $('bombTime').textContent = fmtClock(left);
+      $('scoreSep').textContent = ':'; // relógio do round não vale mais: quem manda é a barra
+      updateBombBars(state, serverLeft);
     } else {
       mainBar.classList.remove('bomb-planted');
+      mainBar.classList.remove('defusing');
+      defuseTracker.active = false;
       var phase = (state.roundPhase || '').toLowerCase();
       if(phase === 'freezetime'){
         $('scoreSep').textContent = fmtClock(serverLeft !== null ? serverLeft : estimatedSecondsLeft(phaseTracker, FREEZETIME_SECONDS));
@@ -978,6 +1296,7 @@
       deathPos = {};
       lastAlivePos = {};
       lastDeathResetKey = mapKey;
+      clearUtility();
     }
     lastDeathRound = state.round;
     lastRoundPhase = phase;
@@ -1040,6 +1359,7 @@
     renderRoster($('rosterT'), tPlayers, 'tr', 5);
 
     renderRadar(ctPlayers.concat(tPlayers), state.map, state.bomb);
+    updateUtility(state.grenades || [], state.map);
     renderSpectator(state.spectatedPlayer || null);
   }
 
@@ -1055,10 +1375,12 @@
     // placar / cabeçalho
     $('scoreCT').textContent = '0'; $('scoreT').textContent = '0';
     $('scoreCT').className = ''; $('scoreT').className = '';
-    $('ctLabel').textContent = 'COUNTER'; $('trLabel').textContent = 'TERRORIST';
+    applyTeams(null, {});
+    roundsPrimed = false;
     $('mapName').textContent = '—'; $('roundInfo').textContent = 'ROUND —';
     $('scoreSep').textContent = ':';
     document.querySelector('.spine-main').classList.remove('bomb-planted');
+    document.querySelector('.spine-main').classList.remove('defusing');
 
     // ribbon de rounds
     lastCT = null; lastT = null; history = [];
@@ -1067,10 +1389,12 @@
     // timers estimados
     lastRoundPhase = null;
     phaseTracker = { name: null, startedAt: 0 };
-    bombTracker = { planted: false, startedAt: 0 };
+    bombTracker = { planted: false, startedAt: 0, explodeAt: 0 };
+    defuseTracker = { active: false, startedAt: 0, total: 0, endAt: 0 };
 
     // morte persistente
     lastDeathResetKey = null; lastDeathRound = null; deadThisRound = {}; deathPos = {}; lastAlivePos = {};
+    clearUtility();
     lastPlayerData = {};
 
     // cards -> volta pros 5 slots "vazio" de cada lado
