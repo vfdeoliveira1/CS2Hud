@@ -85,10 +85,35 @@
   .spine-main.defusing #defuseBar{display:block}
   .spine-main.defusing .scoreCol{transform:translateY(-8px)}
   .score .lead{color:#fff} .score .trail{color:var(--steel)}
-  .ribbon{display:flex;gap:3px;margin-top:7px;height:8px}
-  .ribbon u{width:10px;display:block;text-decoration:none}
-  .ribbon u.unk{background:rgba(237,239,242,.18)} /* round jogado com a HUD fechada: vencedor desconhecido */
-  .ribbon .half{width:2px;height:14px;margin:-3px 5px 0;background:var(--bone)} /* troca de lado */
+  /* ---------------- histórico de rounds do half (tempo de compra) ---------------- */
+  /* uma linha por time; em cada round, o ícone de como ele foi vencido
+     (caveira = eliminação, kit = defuse, explosão = bomba, relógio = tempo),
+     na cor do lado que venceu */
+  /* fade: opacidade + visibility (display:none não anima). O visibility
+     só "desliga" depois que o fade de saída termina. */
+  .roundHist{position:absolute;top:100px;left:50%;transform:translate(-50%,-6px);
+    background:var(--bg);border:1px solid var(--line);backdrop-filter:blur(6px);padding:8px 14px 6px;
+    opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .45s ease,transform .45s ease,visibility 0s linear .45s}
+  .roundHist.show{opacity:1;visibility:visible;transform:translate(-50%,0);
+    transition:opacity .45s ease,transform .45s ease,visibility 0s}
+  .rhRow{display:grid;align-items:center;gap:4px;height:34px}
+  .rhRow + .rhRow{border-top:1px solid var(--line)}
+  .rhHead{display:flex;align-items:center;gap:8px}
+  .rhHead img{width:26px;height:26px;object-fit:contain}
+  .rhHead .tg{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.12em;
+    padding:3px 5px;border:1px solid currentColor;line-height:1}
+  .rhHead .sc{font-family:'Anton',sans-serif;font-size:22px;line-height:1;color:#fff}
+  .rhCell{width:28px;height:28px;display:flex;align-items:center;justify-content:center}
+  .rhCell i{width:7px;height:7px;border-radius:50%;background:rgba(237,239,242,.16)}
+  .rhCell svg{width:20px;height:20px;fill:currentColor}
+  .rhCell img{width:20px;height:20px;object-fit:contain}
+  .rhCell.ct{color:var(--ct)} .rhCell.tr{color:var(--tr)}
+  /* kit de defuse (svg de arquivo): tingido de azul CT */
+  .rhCell img.kit{filter:brightness(0) saturate(100%) invert(62%) sepia(38%) saturate(640%) hue-rotate(178deg) brightness(92%) contrast(88%)}
+  .rhNums{display:grid;gap:4px;height:22px;align-items:center}
+  .rhNums span{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--steel);text-align:center;width:28px}
+  .rhNums span.cur{color:#0b0f14;background:var(--bone);border-radius:9px;line-height:16px}
   #connWarn{position:absolute;top:96px;left:50%;transform:translateX(-50%);
     background:rgba(224,100,90,.15);border:1px solid var(--bad);color:#F5B5AF;
     font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.05em;
@@ -338,8 +363,9 @@
       </div>
       <div class="side right"><span class="tag tr" id="trTag">TR</span><span class="lbl" id="trLabel">TERRORIST</span><div class="series tr" id="trSeries"></div></div>
     </div>
-    <div class="ribbon" id="ribbon"></div>
   </div>
+
+  <div class="roundHist" id="roundHist"></div>
 
   <div class="roundWin" id="roundWin">
     <img class="rwLogo" id="rwLogo" alt="">
@@ -576,11 +602,8 @@
     }
   }
 
-  // =====================================================================
-  // RIBBON (histórico de rounds) — construído sozinho a partir da
-  // variação do placar entre uma atualização e outra.
-  // =====================================================================
-  var lastCT = null, lastT = null, history = [];
+  // placar do último pacote (pra detectar quem venceu o round -> popup)
+  var lastCT = null, lastT = null;
 
   // "Morte grudenta": ver uso em render(). Chave = steamId do jogador.
   var deadThisRound = {};
@@ -739,87 +762,111 @@
     return Math.max(0, totalSeconds - elapsed);
   }
 
-  // Histórico salvo no navegador (localStorage), por isso sobrevive ao F5.
-  // Chave única; guarda de qual mapa é e o placar no momento.
-  var HISTORY_KEY = 'cs2hud.roundHistory';
   var roundsPrimed = false;
-  var historyMap = null;
 
-  function saveHistory(){
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify({ map: historyMap, ct: lastCT, t: lastT, history: history }));
-    } catch(e){ /* sem storage (modo privado etc): só não persiste */ }
-  }
-
-  function loadHistory(){
-    try {
-      var saved = JSON.parse(localStorage.getItem(HISTORY_KEY) || 'null');
-      if(saved && Array.isArray(saved.history)) return saved;
-    } catch(e){}
-    return null;
-  }
-
-  function trackRounds(ct, t, mapName){
-    var changed = false;
-    if(lastCT === null){
-      changed = true;
-      // Primeiro dado desde que a página abriu: tenta continuar o histórico
-      // salvo, se for a mesma partida (mesmo mapa e placar não diminuiu).
-      var saved = loadHistory();
-      if(saved && saved.map === mapName && ct >= saved.ct && t >= saved.t &&
-         saved.history.length === saved.ct + saved.t){
-        history = saved.history.slice();
-        lastCT = saved.ct; lastT = saved.t;
-      } else {
-        history = [];
-        lastCT = 0; lastT = 0;
-      }
-      historyMap = mapName;
-    }
-    if(mapName !== historyMap || ct < lastCT || t < lastT){
-      // trocou de mapa ou placar zerou (partida nova)
-      history = []; lastCT = 0; lastT = 0; historyMap = mapName;
-      changed = true;
-    }
+  // Detecta o fim de um round pela variação do placar e mostra o popup de
+  // vencedor (só pra round que a HUD viu acabar, não logo após abrir/F5).
+  function trackRounds(ct, t){
     var winner = null;
-    if(ct - lastCT === 1 && t === lastT){ history.push('ct'); changed = true; winner = 'ct'; }
-    else if(t - lastT === 1 && ct === lastCT){ history.push('tr'); changed = true; winner = 'tr'; }
-    // popup só pra round que a HUD viu acabar (não no primeiro dado após abrir/F5)
-    if(winner && roundsPrimed) showRoundWinner(winner, ct + t);
+    if(roundsPrimed && lastCT !== null){
+      if(ct - lastCT === 1 && t === lastT) winner = 'ct';
+      else if(t - lastT === 1 && ct === lastCT) winner = 'tr';
+    }
+    if(winner) showRoundWinner(winner, ct + t);
     roundsPrimed = true;
-    // rounds que passaram sem a HUD ver (estava fechada / pulou vários):
-    // marcador cinza, pra divisória do intervalo continuar no lugar certo
-    while(history.length < ct + t){ history.push('unk'); changed = true; }
     lastCT = ct; lastT = t;
-    if(changed) saveHistory();
   }
 
-  // Troca de lado: CS2 competitivo é MR12 (intervalo após o round 12) e o
-  // overtime é MR3 (troca a cada 3 rounds). Ajuste se usar outro formato.
-  var HALF_ROUNDS = 12;
-  var OT_HALF_ROUNDS = 3;
-  function isSideSwitchAfter(roundNumber){
-    if(roundNumber === HALF_ROUNDS) return true;
-    if(roundNumber > HALF_ROUNDS * 2) return (roundNumber - HALF_ROUNDS * 2) % OT_HALF_ROUNDS === 0;
-    return false;
+  // =====================================================================
+  // HISTÓRICO DE ROUNDS DO HALF (aparece no tempo de compra)
+  // =====================================================================
+  // Vem do map.round_wins do GSI (o próprio jogo guarda), então está certo
+  // mesmo abrindo a HUD no meio da partida ou depois de F5.
+  // CS2 competitivo: MR12 (troca após o round 12) e overtime MR3; no
+  // começo do overtime os times NÃO trocam de lado (ficam como no 2º half).
+  function halfOf(r){
+    if(r <= 12) return { start: 1, end: 12 };
+    if(r <= 24) return { start: 13, end: 24 };
+    var k = Math.floor((r - 25) / 3);
+    return { start: 25 + 3 * k, end: 27 + 3 * k };
+  }
+  // 0/1: rounds com o mesmo valor foram jogados com os times nos mesmos lados
+  function sideParity(r){
+    if(r <= 12) return 0;
+    if(r <= 24) return 1;
+    return (1 + Math.floor((r - 25) / 3)) % 2;
   }
 
-  function renderRibbon(){
-    var box = $('ribbon');
-    box.innerHTML = '';
-    history.forEach(function(side, i){
-      var u = document.createElement('u');
-      if(side === 'ct') u.style.background = 'var(--ct)';
-      else if(side === 'tr') u.style.background = 'var(--tr)';
-      else u.className = 'unk';
-      box.appendChild(u);
-      // divisória depois do último round de cada metade
-      if(isSideSwitchAfter(i + 1)){
-        var sep = document.createElement('span');
-        sep.className = 'half';
-        box.appendChild(sep);
+  var RH_ICONS = {
+    elimination: '<svg viewBox="0 0 24 24"><path d="M12 2C6.9 2 3 5.7 3 10.4c0 2.7 1.3 5 3.4 6.4V20c0 .6.4 1 1 1h1.9v-2.2h1.5V21h2.4v-2.2h1.5V21h1.9c.6 0 1-.4 1-1v-3.2c2.1-1.4 3.4-3.7 3.4-6.4C21 5.7 17.1 2 12 2zM8.6 14.2a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2zm6.8 0a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2zM12 15.2l1.2 2h-2.4l1.2-2z"/></svg>',
+    bomb: '<svg viewBox="0 0 24 24"><path d="M12 1l2.2 5.6L19.8 3l-2.4 5.9L23 10l-5.1 2.6L22 17l-5.9-1.3L15.3 22 12 17.3 8.7 22l-.8-6.3L2 17l4.1-4.4L1 10l5.6-1.1L4.2 3l5.6 3.6L12 1zm0 7.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z"/></svg>',
+    time: '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 3a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm-1 2v5.6l4.2 2.5 1-1.7-3.2-1.9V7H11z"/></svg>'
+  };
+
+  // "ct_win_elimination" -> { side:'ct', how:'elimination' }
+  function parseRoundResult(res){
+    res = (res || '').toLowerCase();
+    var side = res.indexOf('ct_') === 0 ? 'ct' : (res.indexOf('t_') === 0 ? 'tr' : null);
+    var how = res.indexOf('defuse') !== -1 ? 'defuse'
+            : res.indexOf('bomb') !== -1 ? 'bomb'
+            : res.indexOf('time') !== -1 ? 'time' : 'elimination';
+    return side ? { side: side, how: how } : null;
+  }
+
+  function roundIcon(r){
+    if(r.how === 'defuse') return '<img class="kit" src="' + ICONS_PATH + 'defuser.svg" alt="">';
+    return RH_ICONS[r.how] || RH_ICONS.elimination;
+  }
+
+  function renderRoundHistory(state){
+    var box = $('roundHist');
+    var phase = state ? (state.roundPhase || '').toLowerCase() : '';
+    var sb = state && state.scoreboard;
+    var played = sb ? sb.ct.score + sb.t.score : 0;
+    if(phase !== 'freezetime' || played < 1){ box.classList.remove('show'); return; }
+
+    var upcoming = played + 1;
+    var half = halfOf(upcoming);
+    // começo de half (nenhum round jogado nele ainda): mostra o half anterior
+    if(upcoming === half.start) half = halfOf(played);
+    var n = half.end - half.start + 1;
+
+    var results = {};
+    (state.roundWins || []).forEach(function(w){ results[w.round] = parseRoundResult(w.result); });
+
+    // linha de cima = time que está de CT agora; de baixo = TR agora.
+    // Round jogado com os lados trocados (outro half) inverte a linha.
+    var nowParity = sideParity(upcoming);
+    function rowOf(round, side){
+      var same = sideParity(round) === nowParity;
+      return (side === 'ct') === same ? 'ct' : 'tr';
+    }
+
+    var cols = 'grid-template-columns:78px repeat(' + n + ', 28px)';
+    var html = '';
+    [['ct', sb.ct.score], ['tr', sb.t.score]].forEach(function(row){
+      var logo = teamLogo(row[0]);
+      html += '<div class="rhRow" style="' + cols + '"><div class="rhHead">' +
+        (logo ? '<img src="' + logo + '" alt="">' : '<span class="tg ' + (row[0] === 'ct' ? 'ctc' : 'trc') + '" style="color:var(--' + row[0] + ')">' + DEFAULT_TEAM[row[0]].tag + '</span>') +
+        '<span class="sc">' + row[1] + '</span></div>';
+      for(var r = half.start; r <= half.end; r++){
+        var res = results[r];
+        if(res && rowOf(r, res.side) === row[0]) html += '<div class="rhCell ' + res.side + '" title="Round ' + r + '">' + roundIcon(res) + '</div>';
+        else html += '<div class="rhCell"><i></i></div>';
       }
+      html += '</div>';
     });
+
+    // números: primeiro, atual e último round do half
+    html += '<div class="rhNums" style="' + cols + '"><span></span>';
+    for(var r2 = half.start; r2 <= half.end; r2++){
+      var show = r2 === half.start || r2 === half.end || r2 === upcoming;
+      html += '<span class="' + (r2 === upcoming ? 'cur' : '') + '">' + (show ? r2 : '') + '</span>';
+    }
+    html += '</div>';
+
+    box.innerHTML = html;
+    box.classList.add('show');
   }
 
   // =====================================================================
@@ -1489,10 +1536,10 @@
   var lastGoodMap = null, lastGoodRound = null;
   function fillPartialState(state){
     if(state.map){
-      lastGoodMap = { map: state.map, round: state.round, phase: state.phase, scoreboard: state.scoreboard };
+      lastGoodMap = { map: state.map, round: state.round, phase: state.phase, scoreboard: state.scoreboard, roundWins: state.roundWins };
     } else if(lastGoodMap){
       state.map = lastGoodMap.map; state.round = lastGoodMap.round;
-      state.phase = lastGoodMap.phase; state.scoreboard = lastGoodMap.scoreboard;
+      state.phase = lastGoodMap.phase; state.scoreboard = lastGoodMap.scoreboard; state.roundWins = lastGoodMap.roundWins;
     }
     if(state.roundPhase){
       lastGoodRound = { roundPhase: state.roundPhase, bombState: state.bombState };
@@ -1572,8 +1619,8 @@
       }
     }
 
-    trackRounds(ct.score, t.score, state.map);
-    renderRibbon();
+    trackRounds(ct.score, t.score);
+    renderRoundHistory(state);
 
     var players = state.players || [];
 
@@ -1689,9 +1736,9 @@
     document.querySelector('.spine-main').classList.remove('bomb-planted');
     document.querySelector('.spine-main').classList.remove('defusing');
 
-    // ribbon de rounds
-    lastCT = null; lastT = null; history = [];
-    renderRibbon();
+    // histórico de rounds
+    lastCT = null; lastT = null;
+    renderRoundHistory(null);
 
     // timers estimados
     lastRoundPhase = null;

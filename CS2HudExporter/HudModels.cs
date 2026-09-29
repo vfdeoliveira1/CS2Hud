@@ -40,9 +40,23 @@ public class HudStateDto
     // fogo queimando). Só vem espectando e com "allgrenades" "1" no .cfg.
     public List<GrenadeDto> Grenades { get; set; } = new();
 
+    // Como cada round da partida terminou (nó map.round_wins do GSI), em
+    // ordem. Result: ct_win_elimination, t_win_elimination, ct_win_defuse,
+    // t_win_bomb, ct_win_time...
+    public List<RoundWinDto> RoundWins { get; set; } = new();
+
     // Nome/logo dos times pelo lado atual (configurados no control.html).
     // null no lado = padrão (COUNTER / TERRORIST).
     public TeamsDto? Teams { get; set; }
+}
+
+/// <summary>
+/// Resultado de um round.
+/// </summary>
+public class RoundWinDto
+{
+    public int Round { get; set; }
+    public string Result { get; set; } = string.Empty;
 }
 
 /// <summary>

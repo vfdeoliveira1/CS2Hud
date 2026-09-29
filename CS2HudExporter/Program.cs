@@ -179,6 +179,17 @@ static HudStateDto MapGameStateToHud(JsonObject gs)
         }
     };
 
+    // Como cada round terminou: "round_wins": { "1": "ct_win_elimination", ... }
+    if (map?["round_wins"] is JsonObject wins)
+    {
+        foreach (var kv in wins)
+        {
+            if (int.TryParse(kv.Key, out var n))
+                hud.RoundWins.Add(new RoundWinDto { Round = n, Result = Str(kv.Value) });
+        }
+        hud.RoundWins.Sort((a, b) => a.Round.CompareTo(b.Round));
+    }
+
     // Tempo restante da fase atual (round / freezetime / bomba / timeout).
     // Só vem preenchido espectando/observando.
     if (gs["phase_countdowns"] is JsonObject pc)
