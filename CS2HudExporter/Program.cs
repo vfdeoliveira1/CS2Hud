@@ -257,7 +257,14 @@ static PlayerHudDto MapPlayer(Player player)
         if (IsUtility(weapon))
         {
             dto.Utility.Add(weapon.Name ?? weapon.PaintKit ?? "unknown");
+            continue;
         }
+        // arma principal / pistola (usadas na tela de pausa)
+        var typeName = weapon.Type.ToString();
+        if (typeName.Contains("Pistol", StringComparison.OrdinalIgnoreCase))
+            dto.Secondary = weapon.Name ?? string.Empty;
+        else if (typeName is "Rifle" or "SniperRifle" or "SubmachineGun" or "Shotgun" or "MachineGun")
+            dto.Primary = weapon.Name ?? string.Empty;
     }
 
     // Posição no mapa (só vem preenchida em partidas com allplayers_position

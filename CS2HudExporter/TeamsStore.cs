@@ -10,6 +10,8 @@ public class TeamInfoDto
     public string Name { get; set; } = string.Empty;
     public string Logo { get; set; } = string.Empty; // data URL (data:image/png;base64,...) ou vazio - só no /api/teams (painel)
     public string LogoUrl { get; set; } = string.Empty; // caminho da imagem no servidor - é o que a HUD usa (leve pra consultar 30x/s)
+    public int MapWins { get; set; } // mapas que esse time já venceu na série
+    public string Coach { get; set; } = string.Empty; // nome do coach (aparece na tela de pausa)
 }
 
 /// <summary>
@@ -20,6 +22,23 @@ public class TeamsDto
 {
     public TeamInfoDto? CT { get; set; }
     public TeamInfoDto? T { get; set; }
+
+    // Formato da série: 0 = sem série (sem quadrados), 1/3/5/7 = MD1/MD3/MD5/MD7.
+    // A HUD mostra (BestOf + 1) / 2 quadrados de cada lado.
+    public int BestOf { get; set; }
+
+    // true = mostra a tela de pausa agora, mesmo sem pausa/timeout no jogo
+    public bool ForcePause { get; set; }
+}
+
+/// <summary>
+/// Conteúdo do teams.json.
+/// </summary>
+public class TeamsFile
+{
+    public int BestOf { get; set; }
+    public bool ForcePause { get; set; }
+    public List<StoredTeam> Teams { get; set; } = new();
 }
 
 /// <summary>
@@ -33,6 +52,8 @@ public class StoredTeam
     public string Name { get; set; } = string.Empty;
     public string Logo { get; set; } = string.Empty;
     public string Side { get; set; } = "CT"; // lado em que foi visto por último
+    public int MapWins { get; set; }
+    public string Coach { get; set; } = string.Empty;
     public List<string> SteamIds { get; set; } = new();
 }
 
@@ -46,6 +67,8 @@ public class TeamsStore
     private readonly string _path;
     private readonly object _lock = new();
     private List<StoredTeam> _teams = new();
+    private int _bestOf;
+    private bool _forcePause;
     private static readonly JsonSerializerOptions FileJson = new() { WriteIndented = true };
 
     public TeamsStore(string path)
@@ -54,7 +77,21 @@ public class TeamsStore
         try
         {
             if (File.Exists(_path))
-                _teams = JsonSerializer.Deserialize<List<StoredTeam>>(File.ReadAllText(_path)) ?? new();
+            {
+                var text = File.ReadAllText(_path).TrimStart();
+                if (text.StartsWith("["))
+                {
+                    // formato antigo: só a lista de times
+                    _teams = JsonSerializer.Deserialize<List<StoredTeam>>(text) ?? new();
+                }
+                else
+                {
+                    var file = JsonSerializer.Deserialize<TeamsFile>(text) ?? new();
+                    _teams = file.Teams ?? new();
+                    _bestOf = file.BestOf;
+                    _forcePause = file.ForcePause;
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -127,6 +164,8 @@ public class TeamsStore
         lock (_lock)
         {
             _teams = new();
+            _bestOf = input.BestOf is 1 or 3 or 5 or 7 ? input.BestOf : 0;
+            _forcePause = input.ForcePause;
             AddTeam(input.CT, "CT", players);
             AddTeam(input.T, "T", players);
             Save();
@@ -153,6 +192,8 @@ public class TeamsStore
         lock (_lock)
         {
             _teams = new();
+            _bestOf = 0;
+            _forcePause = false;
             Save();
         }
     }
@@ -164,12 +205,18 @@ public class TeamsStore
         if (name.Length > 40) name = name[..40];
         var logo = info.Logo ?? string.Empty;
         if (!logo.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)) logo = string.Empty;
-        if (name.Length == 0 && logo.Length == 0) return; // lado sem nada = padrão
+        var maxWins = (_bestOf + 1) / 2;
+        var mapWins = Math.Clamp(info.MapWins, 0, maxWins);
+        var coach = (info.Coach ?? string.Empty).Trim();
+        if (coach.Length > 40) coach = coach[..40];
+        if (name.Length == 0 && logo.Length == 0 && mapWins == 0 && coach.Length == 0) return; // lado sem nada = padrão
 
         _teams.Add(new StoredTeam
         {
             Name = name,
             Logo = logo,
+            MapWins = mapWins,
+            Coach = coach,
             Side = side,
             SteamIds = IdsOnSide(players, side).ToList(),
         });
@@ -208,7 +255,7 @@ public class TeamsStore
 
     private TeamsDto ToDto(bool includeLogoData)
     {
-        var dto = new TeamsDto();
+        var dto = new TeamsDto { BestOf = _bestOf, ForcePause = _forcePause };
         foreach (var team in _teams)
         {
             var info = new TeamInfoDto
@@ -217,6 +264,8 @@ public class TeamsStore
                 Logo = includeLogoData ? team.Logo : string.Empty,
                 // id muda a cada "Salvar", então a HUD recarrega a imagem nova
                 LogoUrl = team.Logo.Length > 0 ? "/api/teams/logo/" + team.Id : string.Empty,
+                MapWins = team.MapWins,
+                Coach = team.Coach,
             };
             if (team.Side == "CT") dto.CT = info; else dto.T = info;
         }
@@ -227,7 +276,7 @@ public class TeamsStore
     {
         try
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(_teams, FileJson));
+            File.WriteAllText(_path, JsonSerializer.Serialize(new TeamsFile { BestOf = _bestOf, ForcePause = _forcePause, Teams = _teams }, FileJson));
         }
         catch (Exception ex)
         {

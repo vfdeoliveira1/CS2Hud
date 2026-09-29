@@ -41,6 +41,15 @@
   .tag.logo{border:none;padding:0;width:44px;height:44px;display:flex;align-items:center;justify-content:center}
   .tag.logo img{max-width:100%;max-height:100%;object-fit:contain}
 
+  /* quadrados da série (MD3, MD5...): um por mapa necessário pra vencer,
+     empilhados ao lado do placar; preenchido = mapa vencido */
+  .series{display:flex;flex-direction:column;gap:3px;margin-left:auto}
+  .side.right .series{margin-left:0;margin-right:auto}
+  .series:empty{display:none}
+  .series i{display:block;width:14px;height:8px;background:rgba(237,239,242,.14);box-shadow:inset 0 0 0 1px rgba(237,239,242,.18)}
+  .series.ct i.won{background:var(--ct);box-shadow:none}
+  .series.tr i.won{background:var(--tr);box-shadow:none}
+
   /* ---------------- popup de vencedor do round ---------------- */
   .roundWin{position:absolute;top:150px;left:50%;transform:translate(-50%,-12px);
     display:flex;align-items:center;gap:16px;padding:14px 34px 14px 22px;min-width:420px;
@@ -90,32 +99,49 @@
      o rodapé de uma tela 1920x1080: 5*92 + 4*8 = 492px de altura total. */
   .roster{position:absolute;top:560px;width:460px;display:flex;flex-direction:column;gap:8px}
   .roster.left{left:24px} .roster.right{right:24px}
-  .card{background:var(--bg-soft);backdrop-filter:blur(5px);border-left:5px solid var(--steel);
-        display:grid;grid-template-columns:54px 1fr 60px 78px;align-items:center;gap:12px;
-        padding:0 18px;height:92px;overflow:hidden;transition:opacity .2s}
-  .card.dead{opacity:.35}
-  .card.ct{border-left-color:var(--ct)}
-  .card.tr{border-left-color:var(--tr)}
+  /* card: [bloco de vida] [linha 1: nº + nick + kills do round ... arma]
+                            [linha 2: K/A/D + $ ... granadas, kit, colete]
+     + barra de vida fina na base. O lado direito da tela é espelhado. */
+  .card{position:relative;height:92px;display:grid;grid-template-columns:70px 1fr;
+        background:var(--bg-soft);backdrop-filter:blur(5px);overflow:hidden;transition:opacity .2s;
+        --team:var(--steel);--team-soft:rgba(120,132,143,.16)}
+  .card.ct{--team:var(--ct);--team-soft:rgba(110,158,218,.16)}
+  .card.tr{--team:var(--tr);--team-soft:rgba(217,164,65,.16)}
+  .card.dead{opacity:.38}
   .card.empty{opacity:.25}
-  .idx{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--steel);text-align:center}
-  .info{display:flex;flex-direction:column;justify-content:center;min-width:0}
-  .info .nick{font-size:26px;font-weight:700;text-transform:uppercase;line-height:1;
-        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  .info .row2{display:flex;align-items:center;gap:12px;margin-top:6px;
-        font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--steel)}
-  .info .row2 .stat{display:flex;align-items:center;gap:3px}
-  .info .row2 .money{color:var(--good);margin-left:auto}
-  .gear{display:flex;gap:5px;align-items:center;justify-self:end}
-  .gear img.ic{width:18px;height:18px;opacity:.85}
-  .weapon{display:flex;flex-direction:column;align-items:center;gap:4px}
-  .weapon img.ic{width:52px;height:28px;object-fit:contain}
-  .hp{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:28px;text-align:right}
-  .hp.good{color:var(--good)} .hp.warn{color:var(--warn)} .hp.bad{color:var(--bad)}
-
-  /* linha de pips SEMPRE presente (mesmo vazia), pra altura do card não mudar */
-  .killPips{display:flex;gap:3px;margin-top:5px;min-height:9px}
+  .hpBox{display:flex;align-items:center;justify-content:center;background:var(--team-soft);
+        border-left:4px solid var(--team);
+        font-family:'JetBrains Mono',monospace;font-weight:700;font-size:26px}
+  .hpBox.good{color:var(--good)} .hpBox.warn{color:var(--warn)} .hpBox.bad{color:var(--bad)}
+  .card.dead .hpBox{color:var(--steel)}
+  .cMain{display:flex;flex-direction:column;justify-content:center;gap:9px;padding:0 16px;min-width:0}
+  .cRow{display:flex;align-items:center;gap:10px;min-width:0}
+  .badge{flex:none;width:20px;height:20px;border-radius:50%;background:var(--team);color:#0b0f14;
+        display:flex;align-items:center;justify-content:center;
+        font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;line-height:1}
+  .nick{font-size:26px;font-weight:700;text-transform:uppercase;line-height:1;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  /* abates neste round: losangos vermelhos ao lado do nick */
+  .killPips{display:flex;gap:3px;flex:none}
   .killPips i{width:9px;height:9px;background:var(--bad);
     clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);display:block}
+  .weaponIc{margin-left:auto;flex:none;height:26px;width:90px;object-fit:contain;object-position:right center}
+  .stats{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--steel);flex:none}
+  .stats b{font-weight:700;color:var(--bone)}
+  .stats .money{color:var(--good);font-weight:700}
+  .gear{margin-left:auto;display:flex;gap:6px;align-items:center;flex:none}
+  .gear img.ic{width:18px;height:18px;object-fit:contain;opacity:.9}
+  .gear .sep{width:1px;height:14px;background:var(--line)}
+  .hpBar{position:absolute;left:0;bottom:0;height:3px;background:var(--team);transition:width .3s}
+
+  /* espelhado no lado direito da tela */
+  .roster.right .card{grid-template-columns:1fr 70px}
+  .roster.right .hpBox{order:2;border-left:none;border-right:4px solid var(--team)}
+  .roster.right .cMain{order:1}
+  .roster.right .cRow{flex-direction:row-reverse}
+  .roster.right .weaponIc{margin-left:0;margin-right:auto;object-position:left center;transform:scaleX(-1)}
+  .roster.right .gear{margin-left:0;margin-right:auto;flex-direction:row-reverse}
+  .roster.right .hpBar{left:auto;right:0}
 
   /* ---------------- radar ---------------- */
   .mapTitle{position:absolute;top:24px;left:24px;width:340px;height:36px;
@@ -192,6 +218,66 @@
     drop-shadow(0 0 1px rgba(0,0,0,.9))}
 
   /* ---------------- painel "espectando agora" ---------------- */
+  /* ---------------- tela de pausa / timeout ---------------- */
+  /* aparece no lugar dos cards (e do painel "espectando") durante pausa
+     técnica, timeout, ou quando forçada no control.html */
+  .pause{position:absolute;left:24px;right:24px;bottom:24px;display:none;flex-direction:column;gap:6px}
+  #stage.paused .pause{display:flex}
+  #stage.paused .roster, #stage.paused .specPanel{display:none !important}
+  .pHead,.pBody{display:grid;grid-template-columns:700px 1fr 700px;gap:6px}
+  .pBox{background:var(--bg);border:1px solid var(--line);backdrop-filter:blur(6px)}
+  .pStats{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;height:62px;padding:0 10px;
+    border-top:3px solid var(--team)}
+  .pStats.ct{--team:var(--ct)} .pStats.tr{--team:var(--tr)}
+  .pStat{display:flex;flex-direction:column;align-items:center;gap:5px;line-height:1}
+  .pStat .k{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--steel);text-transform:uppercase}
+  .pStat .v{font-family:'Anton',sans-serif;font-size:24px;letter-spacing:.03em;color:var(--good)}
+  .pTimeouts{display:flex;gap:4px;height:24px;align-items:center}
+  .pTimeouts i{width:18px;height:6px;background:rgba(237,239,242,.15)}
+  .pTimeouts i.on{background:var(--team)}
+  .pCenter{display:flex;align-items:center;justify-content:center;gap:14px;height:62px;padding:0 14px}
+  .pCenter img{width:40px;height:40px;object-fit:contain}
+  .pCenter .tn{font-size:24px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+  .pCenter .sc{font-family:'Anton',sans-serif;font-size:38px;line-height:1}
+  .pCenter .vs{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel)}
+  .pCenter .ctc{color:var(--ct)} .pCenter .trc{color:var(--tr)}
+  .pTable{display:flex;flex-direction:column;gap:4px}
+  .pRow{display:grid;grid-template-columns:170px 56px 1fr 150px 86px;align-items:center;gap:10px;height:40px;
+    padding:0 12px;background:var(--bg);border-left:4px solid var(--team)}
+  .pTable.ct{--team:var(--ct)} .pTable.tr{--team:var(--tr)}
+  .pTable.tr .pRow{grid-template-columns:86px 150px 1fr 56px 170px;border-left:none;border-right:4px solid var(--team)}
+  /* espelha a ordem das colunas: $ | armas | granadas | colete/kit | nick */
+  .pTable.tr .pRow > :nth-child(1){order:5} .pTable.tr .pRow > :nth-child(2){order:4}
+  .pTable.tr .pRow > :nth-child(3){order:3} .pTable.tr .pRow > :nth-child(4){order:2}
+  .pTable.tr .pRow > :nth-child(5){order:1}
+  .pRow.dead{opacity:.45}
+  .pRow .pn{font-size:20px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pTable.tr .pn{text-align:right}
+  .pRow .pIcons{display:flex;gap:5px;align-items:center}
+  .pTable.tr .pIcons{justify-content:flex-end}
+  .pRow .pIcons img.ic{height:18px;width:auto;max-width:22px;object-fit:contain;opacity:.9}
+  .pRow .pGuns{display:flex;gap:10px;align-items:center;justify-content:flex-end}
+  .pTable.tr .pGuns{justify-content:flex-start}
+  .pRow .pGuns img.ic{height:20px;width:auto;max-width:86px;object-fit:contain}
+  .pTable.tr .pGuns img.ic{transform:scaleX(-1)}
+  .pRow .pm{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--good);text-align:right}
+  .pTable.tr .pm{text-align:left}
+  .pMid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center}
+  .pMid .t1{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.3em;color:var(--steel)}
+  .pMid .t2{display:flex;align-items:center;gap:10px;font-family:'Anton',sans-serif;font-size:36px;letter-spacing:.04em;text-transform:uppercase;line-height:1}
+  .pMid .t2 img{width:36px;height:36px;object-fit:contain}
+  .pMid .t2.ct{color:var(--ct)} .pMid .t2.tr{color:var(--tr)}
+  .pMid .t3{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.18em;color:var(--bone)}
+  .pMid .clock{font-family:'Anton',sans-serif;font-size:54px;line-height:1;color:#fff}
+  .pCoachRow{display:grid;grid-template-columns:700px 1fr 700px;gap:6px}
+  .pCoach{display:flex;align-items:center;gap:8px;height:30px}
+  .pCoach.tr{justify-content:flex-end}
+  .pCoach .ck{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.16em;
+    padding:4px 7px;background:var(--team);color:#0b0f14}
+  .pCoach.ct{--team:var(--ct)} .pCoach.tr{--team:var(--tr)}
+  .pCoach .cn{font-size:20px;font-weight:700;text-transform:uppercase;padding:2px 10px;background:var(--bg)}
+  .pCoach:empty{visibility:hidden}
+
   .specPanel{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
     display:none;align-items:center;gap:16px;background:var(--bg-soft);backdrop-filter:blur(5px);
     border:1px solid var(--line);border-left:4px solid var(--steel);padding:12px 22px;min-width:380px}
@@ -223,7 +309,7 @@
 
   <div class="spine">
     <div class="spine-main">
-      <div class="side left"><span class="tag ct" id="ctTag">CT</span><span class="lbl" id="ctLabel">COUNTER</span></div>
+      <div class="side left"><span class="tag ct" id="ctTag">CT</span><span class="lbl" id="ctLabel">COUNTER</span><div class="series ct" id="ctSeries"></div></div>
       <div class="midCol">
         <div class="scoreCol">
           <div class="roundLbl" id="roundInfo">ROUND —</div>
@@ -238,7 +324,7 @@
           <div class="bombBar" id="defuseBar"><i id="defuseBarFill"></i></div>
         </div>
       </div>
-      <div class="side right"><span class="tag tr" id="trTag">TR</span><span class="lbl" id="trLabel">TERRORIST</span></div>
+      <div class="side right"><span class="tag tr" id="trTag">TR</span><span class="lbl" id="trLabel">TERRORIST</span><div class="series tr" id="trSeries"></div></div>
     </div>
     <div class="ribbon" id="ribbon"></div>
   </div>
@@ -261,6 +347,20 @@
     <div class="utilLayer" id="utilIcons"></div>
     <div class="hint" id="radarHint">Posições só chegam quando você está<br>espectando a partida (allplayers_position)</div>
   </div>
+  <div class="pause" id="pauseScreen">
+    <div class="pCoachRow"><div class="pCoach ct" id="pCoachCT"></div><div></div><div class="pCoach tr" id="pCoachT"></div></div>
+    <div class="pHead">
+      <div class="pBox pStats ct" id="pStatsCT"></div>
+      <div class="pBox pCenter" id="pCenter"></div>
+      <div class="pBox pStats tr" id="pStatsT"></div>
+    </div>
+    <div class="pBody">
+      <div class="pTable ct" id="pTableCT"></div>
+      <div class="pBox pMid" id="pMid"></div>
+      <div class="pTable tr" id="pTableT"></div>
+    </div>
+  </div>
+
   <div class="specPanel" id="specPanel">
     <span class="specLabel">Espectando</span>
     <div class="specWeaponCol">
@@ -381,7 +481,8 @@
 
     if(!player){
       card.className = 'card empty ' + side;
-      card.innerHTML = '<div class="idx">' + globalIndex + '</div><div class="info"><div class="nick">— vazio —</div></div><div></div><div></div>';
+      card.innerHTML = '<div class="hpBox"></div><div class="cMain"><div class="cRow">' +
+        '<span class="badge">' + globalIndex + '</span><span class="nick">— vazio —</span></div></div>';
       container.appendChild(card);
       return;
     }
@@ -389,61 +490,65 @@
     var dead = !!player.isDead;
     card.className = 'card ' + side + (dead ? ' dead' : '');
 
-    // número fixo do jogador (0-9)
-    var idxEl = document.createElement('div');
-    idxEl.className = 'idx'; idxEl.textContent = globalIndex;
-    card.appendChild(idxEl);
+    // bloco de vida
+    var hpBox = document.createElement('div');
+    hpBox.className = 'hpBox ' + hpClass(player.health);
+    hpBox.textContent = dead ? '✕' : player.health;
+    card.appendChild(hpBox);
 
-    // nick + linha de stats (kills / deaths / dinheiro)
-    var info = document.createElement('div'); info.className = 'info';
-    var nick = document.createElement('div'); nick.className = 'nick'; nick.textContent = player.nick || '?';
-    var row2 = document.createElement('div'); row2.className = 'row2';
+    var main = document.createElement('div'); main.className = 'cMain';
 
-    var kills = document.createElement('span'); kills.className = 'stat';
-    kills.innerHTML = '<b style="color:var(--good)">K</b> ';
-    kills.appendChild(document.createTextNode(player.kills));
-    var deaths = document.createElement('span'); deaths.className = 'stat';
-    deaths.innerHTML = '<b style="color:var(--bad)">D</b> ';
-    deaths.appendChild(document.createTextNode(player.deaths));
+    // linha 1: nº (mesma cor/número do ponto no radar) + nick + abates do
+    // round + arma "de verdade" (se estiver com granada na mão, continua
+    // mostrando a arma - ver displayWeapon em render())
+    var row1 = document.createElement('div'); row1.className = 'cRow';
+    var badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = globalIndex;
+    var nick = document.createElement('span'); nick.className = 'nick'; nick.textContent = player.nick || '?';
+    row1.appendChild(badge); row1.appendChild(nick);
+    var rk = player.roundKills || 0;
+    if(rk > 0){
+      var pips = document.createElement('span'); pips.className = 'killPips';
+      for(var pi = 0; pi < rk; pi++) pips.appendChild(document.createElement('i'));
+      row1.appendChild(pips);
+    }
+    var wIconSrc = weaponIcon(player.displayWeapon || player.activeWeapon);
+    if(wIconSrc) row1.appendChild(makeIcon(wIconSrc, 'weaponIc'));
+    main.appendChild(row1);
+
+    // linha 2: K / A / D + dinheiro ... granadas | kit, colete
+    var row2 = document.createElement('div'); row2.className = 'cRow';
+    var stats = document.createElement('div'); stats.className = 'stats';
+    [['K', player.kills], ['A', player.assists], ['D', player.deaths]].forEach(function(st){
+      var el = document.createElement('span');
+      el.appendChild(document.createTextNode(st[0] + ' '));
+      var b = document.createElement('b'); b.textContent = st[1] || 0; el.appendChild(b);
+      stats.appendChild(el);
+    });
     var money = document.createElement('span'); money.className = 'money';
     money.textContent = '$' + (player.money || 0);
+    stats.appendChild(money);
+    row2.appendChild(stats);
 
-    row2.appendChild(kills); row2.appendChild(deaths); row2.appendChild(money);
-    info.appendChild(nick); info.appendChild(row2);
-
-    // pips de kill do round: um losango vermelho pra cada abate que o
-    // jogador já fez NESSA rodada (zera quando o round vira). A linha
-    // fica sempre presente (mesmo vazia) pra altura do card não mudar.
-    var pips = document.createElement('div'); pips.className = 'killPips';
-    var rk = player.roundKills || 0;
-    for(var pi = 0; pi < rk; pi++) pips.appendChild(document.createElement('i'));
-    info.appendChild(pips);
-
-    card.appendChild(info);
-
-    // arma "de verdade" (principal/secundária) mais recente - se ele tá
-    // com uma granada/utilitária na mão agora, continua mostrando a arma
-    // dele em vez da granada (ver displayWeapon calculado em render()).
-    var weaponWrap = document.createElement('div'); weaponWrap.className = 'weapon';
-    var wIconSrc = weaponIcon(player.displayWeapon || player.activeWeapon);
-    if(wIconSrc) weaponWrap.appendChild(makeIcon(wIconSrc));
-    // utilitárias + armadura, em baixo do ícone da arma
     var gear = document.createElement('div'); gear.className = 'gear';
     (player.utility || []).forEach(function(u){
+      if(u === 'weapon_c4') return; // quem carrega a bomba já aparece em vermelho no radar
       var src = weaponIcon(u);
       if(src) gear.appendChild(makeIcon(src));
     });
-    if(player.hasArmor){
-      gear.appendChild(makeIcon(ICONS_PATH + (player.hasHelmet ? 'armor_helmet.svg' : 'armor.svg')));
+    var hasEquip = player.hasDefuseKit || player.hasArmor;
+    if(gear.children.length && hasEquip){
+      var sep = document.createElement('span'); sep.className = 'sep'; gear.appendChild(sep);
     }
-    weaponWrap.appendChild(gear);
-    card.appendChild(weaponWrap);
+    if(player.hasDefuseKit) gear.appendChild(makeIcon(ICONS_PATH + 'defuser.svg'));
+    if(player.hasArmor) gear.appendChild(makeIcon(ICONS_PATH + (player.hasHelmet ? 'armor_helmet.svg' : 'armor.svg')));
+    row2.appendChild(gear);
+    main.appendChild(row2);
+    card.appendChild(main);
 
-    // vida
-    var hp = document.createElement('div');
-    hp.className = 'hp ' + hpClass(player.health);
-    hp.textContent = dead ? '—' : player.health;
-    card.appendChild(hp);
+    // barra de vida na base
+    var bar = document.createElement('div'); bar.className = 'hpBar';
+    bar.style.width = (dead ? 0 : Math.max(0, Math.min(100, player.health))) + '%';
+    card.appendChild(bar);
 
     container.appendChild(card);
   }
@@ -716,8 +821,26 @@
     teamsCfg = teamsCfg || {};
     currentTeams.ct = teamsCfg.ct || null;
     currentTeams.tr = teamsCfg.t || null;
+    var bestOf = teamsCfg.bestOf || 0;
+    var mapsToWin = bestOf ? Math.ceil(bestOf / 2) : 0; // MD1=1, MD3=2, MD5=3, MD7=4
     ['ct', 'tr'].forEach(function(side){
       var cfg = currentTeams[side];
+
+      // quadrados da série - só redesenha se mudou
+      var wins = Math.min(mapsToWin, (cfg && cfg.mapWins) || 0);
+      var seriesEl = $(side + 'Series');
+      var seriesKey = mapsToWin + '/' + wins;
+      if(seriesEl.dataset.key !== seriesKey){
+        seriesEl.dataset.key = seriesKey;
+        seriesEl.innerHTML = '';
+        // de baixo pra cima: o 1º mapa vencido acende o quadrado de baixo
+        for(var i = mapsToWin - 1; i >= 0; i--){
+          var box = document.createElement('i');
+          if(i < wins) box.className = 'won';
+          seriesEl.appendChild(box);
+        }
+      }
+
       // nome do painel > nome que o próprio jogo manda (torneios) > padrão
       var gsiName = gsiNames[side];
       if(gsiName === 'CT' || gsiName === 'T') gsiName = ''; // exportador usa isso quando não há nome
@@ -759,6 +882,102 @@
     box.classList.add('show');
     clearTimeout(roundWinTimer);
     roundWinTimer = setTimeout(function(){ box.classList.remove('show'); }, ROUND_WIN_POPUP_MS);
+  }
+
+  // =====================================================================
+  // TELA DE PAUSA / TIMEOUT
+  // =====================================================================
+  var TIMEOUTS_PER_TEAM = 3; // mp_team_timeout_max do servidor (padrão competitivo)
+
+  // Loss bonus do CS2 se o time perder o próximo round: $1400 + $500 por
+  // derrota seguida, até $3400.
+  function lossBonus(losses){ return 1400 + 500 * Math.min(Math.max(losses || 0, 0), 4); }
+  function fmtMoney(v){ return '$' + (v || 0).toLocaleString('en-US'); }
+  function teamName(side){ var c = currentTeams[side]; return (c && c.name) || DEFAULT_TEAM[side].label; }
+  function teamLogo(side){ var c = currentTeams[side]; return c && c.logoUrl ? API_BASE + c.logoUrl : ''; }
+  function esc(t){ var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
+
+  function pauseInfo(state, teamsCfg){
+    var phase = (state.phaseCountdownName || '').toLowerCase().replace('timeoutct', 'timeout_ct').replace('timeoutt', 'timeout_t');
+    if(phase === 'timeout_ct') return { title: 'TIMEOUT', side: 'ct' };
+    if(phase === 'timeout_t') return { title: 'TIMEOUT', side: 'tr' };
+    if(phase === 'paused') return { title: 'PAUSA TÉCNICA', side: null };
+    if(teamsCfg && teamsCfg.forcePause) return { title: 'PAUSA', side: null };
+    return null;
+  }
+
+  function renderPause(state, ctPlayers, tPlayers){
+    var info = pauseInfo(state, state.teams);
+    var stage = $('stage');
+    if(!info){ stage.classList.remove('paused'); return; }
+    stage.classList.add('paused');
+    var sb = state.scoreboard;
+
+    // coaches (só aparece quem tem nome definido no control.html)
+    [['ct', 'pCoachCT'], ['tr', 'pCoachT']].forEach(function(r){
+      var c = currentTeams[r[0]];
+      $(r[1]).innerHTML = c && c.coach ? '<span class="ck">COACH</span><span class="cn">' + esc(c.coach) + '</span>' : '';
+    });
+
+    // valor de equipamento / loss bonus / timeouts restantes
+    [['ct', 'pStatsCT', ctPlayers, sb.ct], ['tr', 'pStatsT', tPlayers, sb.t]].forEach(function(r){
+      var equip = r[2].reduce(function(sum, p){ return sum + (p.equipmentValue || 0); }, 0);
+      var left = r[3].timeoutsRemaining || 0;
+      var total = Math.max(TIMEOUTS_PER_TEAM, left);
+      var boxes = '';
+      for(var i = 0; i < total; i++) boxes += '<i class="' + (i < left ? 'on' : '') + '"></i>';
+      var cells = [
+        '<div class="pStat"><span class="k">Equipamento</span><span class="v">' + fmtMoney(equip) + '</span></div>',
+        '<div class="pStat"><span class="k">Loss bonus</span><span class="v">' + fmtMoney(lossBonus(r[3].consecutiveRoundLosses)) + '</span></div>',
+        '<div class="pStat"><span class="k">Timeouts</span><span class="pTimeouts">' + boxes + '</span></div>'
+      ];
+      if(r[0] === 'tr') cells.reverse(); // espelhado do lado direito
+      $(r[1]).innerHTML = cells.join('');
+    });
+
+    // centro do cabeçalho: logo NOME  6 vs 3  NOME logo
+    var lc = teamLogo('ct'), lt = teamLogo('tr');
+    $('pCenter').innerHTML =
+      (lc ? '<img src="' + lc + '">' : '') + '<span class="tn ctc">' + esc(teamName('ct')) + '</span>' +
+      '<span class="sc">' + sb.ct.score + '</span><span class="vs">VS</span><span class="sc">' + sb.t.score + '</span>' +
+      '<span class="tn trc">' + esc(teamName('tr')) + '</span>' + (lt ? '<img src="' + lt + '">' : '');
+
+    // tabelas de jogadores
+    [['pTableCT', ctPlayers], ['pTableT', tPlayers]].forEach(function(r){
+      var rows = r[1].slice().sort(function(a, b){ return a.hudIndex - b.hudIndex; });
+      $(r[0]).innerHTML = rows.map(function(p){
+        var eq = '';
+        if(p.hasArmor) eq += '<img class="ic" src="' + ICONS_PATH + (p.hasHelmet ? 'armor_helmet.svg' : 'armor.svg') + '">';
+        if(p.hasDefuseKit) eq += '<img class="ic" src="' + ICONS_PATH + 'defuser.svg">';
+        var util = (p.utility || []).filter(function(u){ return u !== 'weapon_c4'; }).map(function(u){
+          var src = weaponIcon(u); return src ? '<img class="ic" src="' + src + '">' : '';
+        }).join('');
+        if((p.utility || []).indexOf('weapon_c4') !== -1) util += '<img class="ic" src="' + ICONS_PATH + 'c4.svg">';
+        var guns = [p.secondary, p.primary].filter(Boolean).map(function(w){
+          return '<img class="ic" src="' + weaponIcon(w) + '">';
+        }).join('');
+        return '<div class="pRow' + (p.isDead ? ' dead' : '') + '">' +
+          '<span class="pn">' + esc(p.nick) + '</span>' +
+          '<span class="pIcons">' + eq + '</span>' +
+          '<span class="pIcons">' + util + '</span>' +
+          '<span class="pGuns">' + guns + '</span>' +
+          '<span class="pm">' + fmtMoney(p.money) + '</span></div>';
+      }).join('');
+    });
+
+    // centro: quem pediu o timeout + contagem
+    var mid = '<span class="t1">' + info.title + '</span>';
+    if(info.side){
+      var sideScore = info.side === 'ct' ? sb.ct : sb.t;
+      var used = Math.max(1, TIMEOUTS_PER_TEAM - (sideScore.timeoutsRemaining || 0));
+      var logo = teamLogo(info.side);
+      mid += '<span class="t2 ' + info.side + '">' + (logo ? '<img src="' + logo + '">' : '') + esc(teamName(info.side)) + '</span>' +
+             '<span class="t3">TIMEOUT ' + used + '/' + TIMEOUTS_PER_TEAM + '</span>';
+    }
+    var left = typeof state.phaseSecondsLeft === 'number' && state.phaseSecondsLeft > 0 && (info.side || info.title === 'PAUSA TÉCNICA')
+      ? state.phaseSecondsLeft : null;
+    if(left !== null) mid += '<span class="clock">' + fmtClock(left) + '</span>';
+    $('pMid').innerHTML = mid;
   }
 
   // "de_dust2" -> "DUST2"
@@ -963,11 +1182,13 @@
 
       if(p.isDead){
         // X fica cravado onde ele morreu: a última posição vista com ele
-        // VIVO. Depois da morte o GSI continua mandando posições (câmera,
-        // corpo caindo, 0,0,0...) que fariam o X andar - ignoramos.
-        if(!deathPos[p.steamId]){
-          var src = lastAlivePos[p.steamId] || (hasPos ? p.position : null);
-          if(src) deathPos[p.steamId] = { x: src.x, y: src.y };
+        // VIVO. Depois da morte o GSI manda a posição da CÂMERA do morto
+        // (que segue um companheiro vivo) - essa nunca é usada. Se a HUD
+        // não viu o jogador vivo neste round (abriu depois da morte e não
+        // tinha nada salvo), é melhor não mostrar X do que mostrar errado.
+        if(!deathPos[p.steamId] && lastAlivePos[p.steamId]){
+          var src = lastAlivePos[p.steamId];
+          deathPos[p.steamId] = { x: src.x, y: src.y };
         }
       } else if(hasPos){
         lastAlivePos[p.steamId] = { x: p.position.x, y: p.position.y };
@@ -977,7 +1198,8 @@
       if(!worldPos){
         // pacote sem posição: se o ponto estava visível há pouco, mantém
         // parado no último lugar em vez de sumir e voltar (evita piscar)
-        if(slot.active && nowMs - slot.lastPosAt < POS_GRACE_MS) seen[p.hudIndex] = true;
+        // (só pra vivo - X de morte sem posição some na hora)
+        if(!p.isDead && slot.active && !slot.isDeadMark && nowMs - slot.lastPosAt < POS_GRACE_MS) seen[p.hudIndex] = true;
         else slot.active = false;
         return;
       }
@@ -989,6 +1211,7 @@
       slot.lastPosAt = nowMs;
       setSlotTarget(slot, pos.xPct, pos.yPct);
 
+      slot.isDeadMark = !!p.isDead;
       if(p.isDead){
         // "X" translúcido na cor do time, no lugar onde ele morreu
         slot.el.className = 'dot dead ' + (p.team === 'CT' ? 'ct' : 'tr');
@@ -1020,6 +1243,7 @@
         var fallbackPos = worldToRadarPct(deathPos[ownerSteamId].x, deathPos[ownerSteamId].y, mapName);
         if(fallbackPos && fallbackPos.xPct >= 0 && fallbackPos.xPct <= 100 && fallbackPos.yPct >= 0 && fallbackPos.yPct <= 100){
           s.active = true;
+          s.isDeadMark = true;
           setSlotTarget(s, fallbackPos.xPct, fallbackPos.yPct);
           var team = lastTeam[ownerSteamId] || 'CT';
           s.el.className = 'dot dead ' + (team === 'CT' ? 'ct' : 'tr');
@@ -1030,7 +1254,7 @@
         }
       }
       // jogador sumiu da lista neste pacote: mesma tolerância de cima
-      if(s.active && nowMs - s.lastPosAt < POS_GRACE_MS) return;
+      if(s.active && !s.isDeadMark && nowMs - s.lastPosAt < POS_GRACE_MS) return;
       s.active = false;
     });
 
@@ -1228,7 +1452,55 @@
   // =====================================================================
   // LOOP PRINCIPAL
   // =====================================================================
+  // ---- pacotes parciais do GSI ----
+  // Às vezes (troca de câmera etc) o CS2 manda um pacote sem o nó do mapa
+  // e/ou do round. O exportador então entrega mapa "", round 0, placar 0x0
+  // e fase "" - e isso parecia troca de mapa/partida nova: zerava as
+  // mortes (X ia pra posição errada), o histórico de rounds e a bomba.
+  // Completa esses campos com os do último pacote completo.
+  var lastGoodMap = null, lastGoodRound = null;
+  function fillPartialState(state){
+    if(state.map){
+      lastGoodMap = { map: state.map, round: state.round, phase: state.phase, scoreboard: state.scoreboard };
+    } else if(lastGoodMap){
+      state.map = lastGoodMap.map; state.round = lastGoodMap.round;
+      state.phase = lastGoodMap.phase; state.scoreboard = lastGoodMap.scoreboard;
+    }
+    if(state.roundPhase){
+      lastGoodRound = { roundPhase: state.roundPhase, bombState: state.bombState };
+    } else if(lastGoodRound){
+      state.roundPhase = lastGoodRound.roundPhase; state.bombState = lastGoodRound.bombState;
+    }
+  }
+
+  // ---- mortes salvas no navegador (sobrevivem ao F5) ----
+  var DEATHS_KEY = 'cs2hud.deaths';
+  var deathsRestored = false;
+  var lastDeathsSaved = null;
+  function saveDeaths(state){
+    var data = JSON.stringify({ map: state.map, round: state.round, dead: deadThisRound, pos: deathPos, alive: lastAlivePos });
+    if(data === lastDeathsSaved) return;
+    lastDeathsSaved = data;
+    try { localStorage.setItem(DEATHS_KEY, data); } catch(e){}
+  }
+  // Só restaura se for o MESMO round: mesmo mapa e mesmo número de round,
+  // ou o round seguinte enquanto ainda está na fase "over" (o número do
+  // round vira quando ele acaba, mas o X fica até o próximo começar).
+  function loadDeaths(state, phase){
+    try {
+      var saved = JSON.parse(localStorage.getItem(DEATHS_KEY) || 'null');
+      if(!saved || saved.map !== state.map || phase === 'freezetime') return;
+      var sameRound = state.round === saved.round;
+      var justEnded = state.round === saved.round + 1 && phase === 'over';
+      if(!sameRound && !justEnded) return;
+      deadThisRound = saved.dead || {};
+      deathPos = saved.pos || {};
+      lastAlivePos = saved.alive || {};
+    } catch(e){}
+  }
+
   function render(state){
+    fillPartialState(state);
     var ct = state.scoreboard.ct, t = state.scoreboard.t;
 
     $('scoreCT').textContent = ct.score;
@@ -1291,12 +1563,16 @@
     var enteredFreezetime = phase === 'freezetime' && lastRoundPhase !== 'freezetime';
     var overToLive = phase === 'live' && lastRoundPhase === 'over';
     var roundWentBack = lastDeathRound !== null && state.round < lastDeathRound;
-    if(mapKey !== lastDeathResetKey || roundWentBack || enteredFreezetime || overToLive){
+    // sem mapa nenhum ainda (pacote parcial logo após abrir): não decide nada
+    if(mapKey && (mapKey !== lastDeathResetKey || roundWentBack || enteredFreezetime || overToLive)){
       deadThisRound = {};
       deathPos = {};
       lastAlivePos = {};
       lastDeathResetKey = mapKey;
       clearUtility();
+      // primeira vez com mapa desde que a página abriu (ou F5): recupera
+      // as mortes salvas deste round
+      if(!deathsRestored){ deathsRestored = true; loadDeaths(state, phase); }
     }
     lastDeathRound = state.round;
     lastRoundPhase = phase;
@@ -1359,8 +1635,10 @@
     renderRoster($('rosterT'), tPlayers, 'tr', 5);
 
     renderRadar(ctPlayers.concat(tPlayers), state.map, state.bomb);
+    if(state.map) saveDeaths(state);
     updateUtility(state.grenades || [], state.map);
     renderSpectator(state.spectatedPlayer || null);
+    renderPause(state, ctPlayers, tPlayers);
   }
 
   // =====================================================================
@@ -1372,6 +1650,7 @@
   // (cards mortos, ponto no mapa, etc) até alguém dar F5 manualmente.
   // Detectamos essa lacuna e zeramos tudo sozinhos.
   function resetVisuals(){
+    $('stage').classList.remove('paused');
     // placar / cabeçalho
     $('scoreCT').textContent = '0'; $('scoreT').textContent = '0';
     $('scoreCT').className = ''; $('scoreT').className = '';
@@ -1394,6 +1673,7 @@
 
     // morte persistente
     lastDeathResetKey = null; lastDeathRound = null; deadThisRound = {}; deathPos = {}; lastAlivePos = {};
+    lastGoodMap = null; lastGoodRound = null; deathsRestored = false;
     clearUtility();
     lastPlayerData = {};
 

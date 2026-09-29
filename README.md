@@ -117,7 +117,8 @@ CS2Hud/control.html
 Preencha o nome e a logo do time que está de **CT agora** e do que está de **TR agora** e clique em **Salvar**. A HUD passa a mostrar o nome no placar e a logo no lugar do ícone CT/TR, e o popup de vencedor do round usa esse nome e essa logo.
 
 - Na troca de lado (intervalo e overtime) o nome e a logo acompanham o time sozinhos, pelos jogadores de cada um. Se aparecerem trocados, use **Inverter lados**.
-- **Padrão** volta para COUNTER / TERRORIST com os ícones CT e TR.
+- **Série**: escolha MD1/MD3/MD5/MD7 e marque os mapas vencidos de cada time; a HUD mostra ao lado do placar um quadrado por mapa necessário para vencer (MD3 = 2, MD5 = 3...).
+- **Padrão** volta para COUNTER / TERRORIST com os ícones CT e TR, sem série.
 - A configuração fica salva em `CS2HudExporter/teams.json` (não vai para o git).
 
 ## Endpoints
@@ -148,7 +149,7 @@ Se ainda não houver dados do jogo, a API pode responder `204 No Content`.
 ### Times (usados pelo `control.html`)
 
 - `GET /api/teams`: times configurados, pelo lado atual.
-- `POST /api/teams`: salva `{ "ct": { "name", "logo" }, "t": { "name", "logo" } }` (logo em data URL).
+- `POST /api/teams`: salva `{ "bestOf", "ct": { "name", "logo", "mapWins" }, "t": { ... } }` (logo em data URL; `bestOf` 0/1/3/5/7).
 - `POST /api/teams/swap`: inverte os lados manualmente.
 - `DELETE /api/teams`: volta ao padrão.
 - `GET /api/teams/logo/{id}`: imagem da logo.

@@ -126,6 +126,8 @@ public class PlayerHudDto
     public int EquipmentValue { get; set; }
 
     public List<string> Utility { get; set; } = new(); // granadas / itens utilitários na mão
+    public string Primary { get; set; } = string.Empty;   // arma principal no inventário (rifle, SMG, sniper...), mesmo sem estar na mão
+    public string Secondary { get; set; } = string.Empty; // pistola no inventário
 
     public PositionDto? Position { get; set; }
 }

@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\CS2HudExporter.csproj": {}
+    "C:\\Users\\Vinic\\OneDrive\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\CS2HudExporter.csproj": {}
   },
   "projects": {
-    "D:\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\CS2HudExporter.csproj": {
+    "C:\\Users\\Vinic\\OneDrive\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\CS2HudExporter.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\CS2HudExporter.csproj",
+        "projectUniqueName": "C:\\Users\\Vinic\\OneDrive\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\CS2HudExporter.csproj",
         "projectName": "CS2HudExporter",
-        "projectPath": "D:\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\CS2HudExporter.csproj",
+        "projectPath": "C:\\Users\\Vinic\\OneDrive\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\CS2HudExporter.csproj",
         "packagesPath": "C:\\Users\\Vinic\\.nuget\\packages\\",
-        "outputPath": "D:\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\obj\\",
+        "outputPath": "C:\\Users\\Vinic\\OneDrive\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "D:\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\NuGet.Config",
+          "C:\\Users\\Vinic\\OneDrive\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\NuGet.Config",
           "C:\\Users\\Vinic\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
@@ -25,7 +25,6 @@
         },
         "frameworks": {
           "net8.0": {
-            "framework": "net8.0",
             "targetAlias": "net8.0",
             "projectReferences": {}
           }
@@ -40,11 +39,10 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "10.0.400"
+        "SdkAnalysisLevel": "10.0.100"
       },
       "frameworks": {
         "net8.0": {
-          "framework": "net8.0",
           "targetAlias": "net8.0",
           "dependencies": {
             "CounterStrike2GSI": {
@@ -93,7 +91,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.400/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.111/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

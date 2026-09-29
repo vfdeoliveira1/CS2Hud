@@ -68,6 +68,27 @@
   button.primary:hover{background:#fff}
   button:disabled{opacity:.4;cursor:default}
 
+  label.check{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--bone)}
+  label.check input{width:16px;height:16px;accent-color:var(--bone)}
+  /* série */
+  .seriesBar{background:var(--panel);border:1px solid var(--line);padding:14px 18px;margin-bottom:16px;
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .seriesBar label{margin:0}
+  .seg{display:flex;flex-wrap:wrap}
+  .seg button{margin-left:-1px}
+  .seg button.on{background:var(--bone);color:var(--bg);border-color:var(--bone);position:relative}
+  .maps{display:flex;align-items:center;gap:8px;margin-top:16px;min-height:28px}
+  .maps .boxes{display:flex;gap:6px}
+  .maps .box{width:28px;height:20px;padding:0;background:var(--panel2);border:1px solid var(--line);cursor:pointer}
+  .team.ct .maps .box.won{background:var(--ct);border-color:var(--ct)}
+  .team.tr .maps .box.won{background:var(--tr);border-color:var(--tr)}
+  .maps .none{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel)}
+  /* quadrados na prévia */
+  .pSeries{display:flex;flex-direction:column;gap:3px;margin-left:auto}
+  .pSide.right .pSeries{margin-left:0;margin-right:auto}
+  .pSeries i{display:block;width:12px;height:7px;background:rgba(237,239,242,.14)}
+  .pSeries.ct i.won{background:var(--ct)} .pSeries.tr i.won{background:var(--tr)}
+
   .actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
   .actions .spacer{flex:1}
   .msg{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel);margin-top:14px;min-height:16px}
@@ -85,9 +106,24 @@
 
   <!-- como vai ficar o placar da HUD -->
   <div class="preview">
-    <div class="pSide"><span class="pTag ct" id="pvCtTag">CT</span><span class="pName" id="pvCtName">COUNTER</span></div>
+    <div class="pSide"><span class="pTag ct" id="pvCtTag">CT</span><span class="pName" id="pvCtName">COUNTER</span><span class="pSeries ct" id="pvCtSeries"></span></div>
     <div class="pScore" id="pvScore">0 : 0</div>
-    <div class="pSide right"><span class="pTag tr" id="pvTrTag">TR</span><span class="pName" id="pvTrName">TERRORIST</span></div>
+    <div class="pSide right"><span class="pTag tr" id="pvTrTag">TR</span><span class="pName" id="pvTrName">TERRORIST</span><span class="pSeries tr" id="pvTrSeries"></span></div>
+  </div>
+
+  <div class="seriesBar">
+    <label>Série</label>
+    <div class="seg" id="bestOf">
+      <button type="button" data-bo="0">Sem série</button>
+      <button type="button" data-bo="1">MD1</button>
+      <button type="button" data-bo="3">MD3</button>
+      <button type="button" data-bo="5">MD5</button>
+      <button type="button" data-bo="7">MD7</button>
+    </div>
+    <span class="spacer" style="flex:1"></span>
+    <label class="check" title="Mostra a tela de pausa na HUD agora. Pausa técnica e timeout do jogo já aparecem sozinhos (espectando).">
+      <input type="checkbox" id="forcePause"> Forçar tela de pausa
+    </label>
   </div>
 
   <div class="teams">
@@ -95,6 +131,8 @@
       <h2>Time no lado CT agora</h2>
       <label for="ctName">Nome</label>
       <input type="text" id="ctName" maxlength="40" placeholder="COUNTER" autocomplete="off">
+      <label for="ctCoach">Coach</label>
+      <input type="text" id="ctCoach" maxlength="40" placeholder="(opcional)" autocomplete="off">
       <label>Logo</label>
       <div class="logoRow">
         <div class="logoBox" id="ctLogoBox">CT</div>
@@ -103,12 +141,15 @@
           <button type="button" id="ctClearLogo">Remover logo</button>
         </div>
       </div>
+      <div class="maps"><label>Mapas vencidos</label><div class="boxes" id="ctMaps"></div></div>
     </section>
 
     <section class="team tr">
       <h2>Time no lado TR agora</h2>
       <label for="tName">Nome</label>
       <input type="text" id="tName" maxlength="40" placeholder="TERRORIST" autocomplete="off">
+      <label for="tCoach">Coach</label>
+      <input type="text" id="tCoach" maxlength="40" placeholder="(opcional)" autocomplete="off">
       <label>Logo</label>
       <div class="logoRow">
         <div class="logoBox" id="tLogoBox">TR</div>
@@ -117,6 +158,7 @@
           <button type="button" id="tClearLogo">Remover logo</button>
         </div>
       </div>
+      <div class="maps"><label>Mapas vencidos</label><div class="boxes" id="tMaps"></div></div>
     </section>
   </div>
 
@@ -132,6 +174,8 @@
     Preencha o time que está <b>jogando de CT agora</b> e o que está <b>de TR agora</b> e clique em <b>Salvar</b>.
     Na troca de lado (intervalo e overtime) o nome e a logo acompanham o time sozinhos, pelos jogadores de cada um.
     Se algum dia aparecerem trocados, clique em <b>Inverter lados</b>. Um lado sem nome e sem logo usa o padrão da HUD.
+    O <b>coach</b> aparece na tela de pausa, que surge sozinha na pausa técnica e no timeout (espectando) ou quando você marca <b>Forçar tela de pausa</b>.
+    Em <b>Série</b>, escolha MD1/MD3/MD5/MD7 e marque os <b>mapas vencidos</b> de cada time: a HUD mostra um quadrado por mapa necessário pra vencer a série.
     O CS2HudExporter precisa estar rodando.
   </p>
 </div>
@@ -144,7 +188,8 @@
   var $ = function(id){ return document.getElementById(id); };
 
   // estado do formulário: side 'ct' | 't'
-  var form = { ct: { name: '', logo: '' }, t: { name: '', logo: '' } };
+  var form = { bestOf: 0, forcePause: false, ct: { name: '', logo: '', mapWins: 0, coach: '' }, t: { name: '', logo: '', mapWins: 0, coach: '' } };
+  function mapsToWin(){ return form.bestOf ? Math.ceil(form.bestOf / 2) : 0; } // MD1=1, MD3=2, MD5=3, MD7=4
   var dirty = false; // editou e ainda não salvou: não sobrescreve com o servidor
 
   function setMsg(text, kind){
@@ -162,6 +207,7 @@
     ['ct', 't'].forEach(function(side){
       var tagText = side === 'ct' ? 'CT' : 'TR';
       if(document.activeElement !== $(side + 'Name')) $(side + 'Name').value = form[side].name;
+      if(document.activeElement !== $(side + 'Coach')) $(side + 'Coach').value = form[side].coach;
       var box = $(side + 'LogoBox');
       box.innerHTML = '';
       if(form[side].logo){
@@ -170,13 +216,45 @@
         box.textContent = tagText;
       }
       $(side + 'ClearLogo').disabled = !form[side].logo;
+
+      // quadrados de mapas vencidos: clicar no N marca N mapas; clicar no
+      // último marcado desmarca ele
+      var maps = $(side + 'Maps');
+      maps.innerHTML = '';
+      var n = mapsToWin();
+      if(!n){ maps.innerHTML = '<span class="none">escolha a série acima</span>'; }
+      for(var i = 0; i < n; i++){
+        (function(i){
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'box' + (i < form[side].mapWins ? ' won' : '');
+          b.title = 'Mapa ' + (i + 1);
+          b.addEventListener('click', function(){
+            form[side].mapWins = form[side].mapWins === i + 1 ? i : i + 1;
+            dirty = true;
+            renderForm();
+          });
+          maps.appendChild(b);
+        })(i);
+      }
     });
+    [].forEach.call($('bestOf').children, function(b){
+      b.className = Number(b.dataset.bo) === form.bestOf ? 'on' : '';
+    });
+    $('forcePause').checked = form.forcePause;
     renderPreview();
   }
 
   function renderPreview(){
     [['ct', 'pvCtTag', 'pvCtName', 'CT', 'COUNTER'], ['t', 'pvTrTag', 'pvTrName', 'TR', 'TERRORIST']].forEach(function(r){
       var side = r[0], tag = $(r[1]), cls = side === 'ct' ? 'ct' : 'tr';
+      var series = $(side === 'ct' ? 'pvCtSeries' : 'pvTrSeries');
+      series.innerHTML = '';
+      for(var i = mapsToWin() - 1; i >= 0; i--){
+        var box = document.createElement('i');
+        if(i < form[side].mapWins) box.className = 'won';
+        series.appendChild(box);
+      }
       $(r[2]).textContent = form[side].name.trim() || r[4];
       tag.innerHTML = '';
       if(form[side].logo){
@@ -190,8 +268,12 @@
   }
 
   function fromServer(data){
-    form.ct = { name: (data.ct && data.ct.name) || '', logo: (data.ct && data.ct.logo) || '' };
-    form.t = { name: (data.t && data.t.name) || '', logo: (data.t && data.t.logo) || '' };
+    form.bestOf = data.bestOf || 0;
+    form.forcePause = !!data.forcePause;
+    ['ct', 't'].forEach(function(side){
+      var d = data[side] || {};
+      form[side] = { name: d.name || '', logo: d.logo || '', mapWins: d.mapWins || 0, coach: d.coach || '' };
+    });
     dirty = false;
     renderForm();
   }
@@ -252,6 +334,10 @@
       dirty = true;
       renderPreview();
     });
+    $(side + 'Coach').addEventListener('input', function(){
+      form[side].coach = this.value;
+      dirty = true;
+    });
     $(side + 'File').addEventListener('change', function(){
       var file = this.files && this.files[0];
       this.value = '';
@@ -270,13 +356,39 @@
     });
   });
 
+  [].forEach.call($('bestOf').children, function(b){
+    b.addEventListener('click', function(){
+      form.bestOf = Number(b.dataset.bo);
+      var n = mapsToWin();
+      form.ct.mapWins = Math.min(form.ct.mapWins, n);
+      form.t.mapWins = Math.min(form.t.mapWins, n);
+      dirty = true;
+      renderForm();
+    });
+  });
+
+  $('forcePause').addEventListener('change', function(){
+    form.forcePause = this.checked;
+    dirty = true;
+    setMsg('Clique em Salvar pra aplicar na HUD.');
+  });
+
   $('saveBtn').addEventListener('click', function(){
     var body = {
-      ct: { name: form.ct.name.trim(), logo: form.ct.logo },
-      t: { name: form.t.name.trim(), logo: form.t.logo }
+      bestOf: form.bestOf,
+      forcePause: form.forcePause,
+      ct: { name: form.ct.name.trim(), logo: form.ct.logo, mapWins: form.ct.mapWins, coach: form.ct.coach.trim() },
+      t: { name: form.t.name.trim(), logo: form.t.logo, mapWins: form.t.mapWins, coach: form.t.coach.trim() }
     };
     request('POST', '/api/teams', body).then(function(data){
       fromServer(data);
+      // exportador de antes da série não conhece "bestOf": avisa em vez de
+      // dizer que salvou (senão parece que o painel "desmarcou sozinho")
+      if(body.bestOf && data.bestOf === undefined){
+        setMsg('Nome/logo salvos, mas a SÉRIE não: o CS2HudExporter que está rodando é uma versão antiga. ' +
+          'Atualize o TeamsStore.cs, feche o exportador e rode de novo.', 'err');
+        return;
+      }
       setMsg('Salvo! A HUD já está usando.', 'ok');
     }).catch(function(){ setMsg('Não consegui salvar: o CS2HudExporter está rodando?', 'err'); });
   });

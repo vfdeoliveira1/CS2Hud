@@ -91,3 +91,5 @@ D:\Documentos\Github\CS2Hud\CS2HudExporter\obj\Debug\net8.0\refint\CS2HudExporte
 D:\Documentos\Github\CS2Hud\CS2HudExporter\obj\Debug\net8.0\CS2HudExporter.pdb
 D:\Documentos\Github\CS2Hud\CS2HudExporter\obj\Debug\net8.0\CS2HudExporter.genruntimeconfig.cache
 D:\Documentos\Github\CS2Hud\CS2HudExporter\obj\Debug\net8.0\ref\CS2HudExporter.dll
+C:\Users\Vinic\OneDrive\Documentos\Github\CS2Hud\CS2HudExporter\bin\Debug\net8.0\nuget.config
+C:\Users\Vinic\OneDrive\Documentos\Github\CS2Hud\CS2HudExporter\bin\Debug\net8.0\teams.json
