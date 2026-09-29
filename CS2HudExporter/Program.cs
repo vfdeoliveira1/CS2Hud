@@ -1,10 +1,15 @@
-using CounterStrike2GSI;
-using CounterStrike2GSI.Nodes;
+using System.Globalization;
+using System.Text.Json.Nodes;
 using CS2HudExporter;
-using Newtonsoft.Json.Linq;
+
+// Obs: o projeto NÃO usa bibliotecas de terceiros (antes usava a
+// CounterStrike2GSI + Newtonsoft). O JSON que o CS2 manda é lido direto
+// aqui com o System.Text.Json do próprio .NET. Motivo: o Controle
+// Inteligente de Aplicativos do Windows bloqueia DLLs baixadas sem
+// assinatura digital, e o exportador nem abria.
 
 // -----------------------------------------------------------------------
-// 1) Estado compartilhado: sempre que o CS2 mandar um novo GameState,
+// 1) Estado compartilhado: sempre que o CS2 mandar um novo estado,
 //    convertemos pra HudStateDto e guardamos aqui. O endpoint HTTP só lê
 //    esse valor (não bloqueia esperando o jogo mandar dado nenhum).
 // -----------------------------------------------------------------------
@@ -12,20 +17,20 @@ HudStateDto? latestHudState = null;
 var stateLock = new object();
 
 // -----------------------------------------------------------------------
-// 2) Geração do arquivo .cfg do GSI. Usamos a classe GameStateListener só
-//    pra esse detalhe (ela sabe achar a pasta do CS2 sozinha) - NÃO usamos
-//    o Start()/listener HTTP dela pra receber os dados, porque a lib tem
-//    um bug conhecido: qualquer erro de rede ou corpo vazio derruba o
-//    processo inteiro (o método interno só trata ObjectDisposedException).
-//    Por isso recebemos o POST do CS2 com o nosso próprio endpoint
-//    ASP.NET abaixo, com try/catch de verdade.
+// 2) Arquivo .cfg do GSI na pasta do CS2 (acha o jogo pela Steam).
 // -----------------------------------------------------------------------
-var cfgHelper = new GameStateListener(3000);
-if (!cfgHelper.GenerateGSIConfigFile("HudExporter"))
+try
 {
-    Console.WriteLine("[AVISO] Não consegui gerar o arquivo de configuração do GSI automaticamente.");
-    Console.WriteLine("        Crie manualmente em: <CS2>/game/csgo/cfg/gamestate_integration_hudexporter.cfg");
-    Console.WriteLine("        (veja o modelo no README.md deste projeto).");
+    if (GsiConfig.Write() == null)
+    {
+        Console.WriteLine("[AVISO] Não achei a pasta do CS2 pra gerar a configuração do GSI.");
+        Console.WriteLine("        Crie manualmente em: <CS2>/game/csgo/cfg/" + GsiConfig.FileName);
+        Console.WriteLine("        (veja o modelo no README.md deste projeto).");
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine("[AVISO] Não consegui gravar a configuração do GSI: " + ex.Message);
 }
 
 // -----------------------------------------------------------------------
@@ -115,9 +120,11 @@ app.MapPost("/", async (HttpRequest request) =>
             return Results.Ok(); // heartbeat vazio ou corpo cortado - ignora
         }
 
-        var json = JObject.Parse(body);
-        var gs = new CounterStrike2GSI.GameState(json);
-        var hud = MapGameStateToHud(gs);
+        if (JsonNode.Parse(body) is not JsonObject json)
+        {
+            return Results.Ok();
+        }
+        var hud = MapGameStateToHud(json);
         hud.Grenades = MapGrenades(json);
 
         lock (stateLock)
@@ -127,8 +134,8 @@ app.MapPost("/", async (HttpRequest request) =>
     }
     catch (Exception ex)
     {
-        // Loga mas NUNCA deixa a exceção subir - é exatamente isso que
-        // faltava na lib e derrubava o servidor.
+        // Loga mas NUNCA deixa a exceção subir: um POST ruim não pode
+        // derrubar o servidor.
         Console.WriteLine("[AVISO] Ignorando POST do GSI que não pôde ser processado: " + ex.Message);
     }
 
@@ -142,193 +149,204 @@ app.Run();
 
 
 // =========================================================================
-// Mapeamento GameState (lib) -> HudStateDto (o que a gente expõe)
-// Obs: a lib tem dois tipos "GameState" (CounterStrike2GSI.GameState e
-// CounterStrike2GSI.Nodes.GameState), por isso qualificamos totalmente aqui
-// pra evitar ambiguidade.
+// Mapeamento JSON do GSI -> HudStateDto (o que a gente expõe)
+// Formato do GSI (resumido):
+//   map:      { name, phase, round, team_ct: { score, name,
+//               consecutive_round_losses, timeouts_remaining }, team_t: {...} }
+//   round:    { phase: freezetime/live/over, bomb: planted/exploded/defused }
+//   phase_countdowns: { phase: live/bomb/defuse/paused/timeout_ct/..., phase_ends_in }
+//   bomb:     { state, position: "x, y, z", countdown }
+//   player:   jogador da câmera (ou você, jogando)
+//   allplayers: { "<steamid>": { name, team, state, match_stats, weapons, position } }
 // =========================================================================
-static HudStateDto MapGameStateToHud(CounterStrike2GSI.GameState gs)
+static HudStateDto MapGameStateToHud(JsonObject gs)
 {
+    var map = gs["map"] as JsonObject;
+    var round = gs["round"] as JsonObject;
+
     var hud = new HudStateDto
     {
         UpdatedAt = DateTime.UtcNow,
-        Map = gs.Map?.Name ?? string.Empty,
-        Phase = gs.Map?.Phase.ToString() ?? string.Empty,
-        Round = gs.Map?.Round ?? 0,
-        BombState = gs.Round?.BombState.ToString() ?? string.Empty,
+        Map = Str(map?["name"]),
+        Phase = Str(map?["phase"]),
+        Round = Int(map?["round"]),
+        BombState = Str(round?["bomb"]),
+        RoundPhase = Str(round?["phase"]),
         Scoreboard = new ScoreboardDto
         {
-            CT = new TeamScoreDto
-            {
-                TeamName = gs.Map?.CTStatistics?.Name ?? "CT",
-                Score = gs.Map?.CTStatistics?.Score ?? 0,
-                ConsecutiveRoundLosses = gs.Map?.CTStatistics?.ConsecutiveRoundLosses ?? 0,
-                TimeoutsRemaining = gs.Map?.CTStatistics?.RemainingTimeouts ?? 0,
-            },
-            T = new TeamScoreDto
-            {
-                TeamName = gs.Map?.TStatistics?.Name ?? "T",
-                Score = gs.Map?.TStatistics?.Score ?? 0,
-                ConsecutiveRoundLosses = gs.Map?.TStatistics?.ConsecutiveRoundLosses ?? 0,
-                TimeoutsRemaining = gs.Map?.TStatistics?.RemainingTimeouts ?? 0,
-            }
+            CT = MapTeam(map?["team_ct"] as JsonObject),
+            T = MapTeam(map?["team_t"] as JsonObject),
         }
     };
 
-    // Tempo restante da fase atual (round / freezetime / bomba). Vem do nó
-    // "phase_countdowns" do GSI, que só é preenchido espectando/observando.
-    hud.PhaseSecondsLeft = gs.PhaseCountdowns?.PhaseEndTime;
-    hud.PhaseCountdownName = gs.PhaseCountdowns?.Phase.ToString() ?? string.Empty;
+    // Tempo restante da fase atual (round / freezetime / bomba / timeout).
+    // Só vem preenchido espectando/observando.
+    if (gs["phase_countdowns"] is JsonObject pc)
+    {
+        hud.PhaseCountdownName = Str(pc["phase"]);
+        hud.PhaseSecondsLeft = pc["phase_ends_in"] != null ? Num(pc["phase_ends_in"]) : null;
+    }
 
-    // Estado + posição exata da bomba (node dedicado, muito mais confiável
-    // do que tentar adivinhar pela arma ativa do jogador).
-    if (gs.Bomb != null)
+    // Estado + posição exata da bomba
+    if (gs["bomb"] is JsonObject bomb)
     {
         hud.Bomb = new BombDto
         {
-            State = gs.Bomb.State.ToString(),
-            Countdown = gs.Bomb.Countdown,
-            Position = new PositionDto
-            {
-                X = gs.Bomb.Position.X,
-                Y = gs.Bomb.Position.Y,
-                Z = gs.Bomb.Position.Z,
-            }
+            State = Str(bomb["state"]),
+            Countdown = Num(bomb["countdown"]),
+            Position = ParseVector(Str(bomb["position"])),
         };
     }
 
-    // gs.Player é sempre "a câmera ativa": você mesmo jogando, ou a pessoa
-    // que o GOTV/observer está olhando agora. Se ninguém está sendo
-    // observado, o GSI simplesmente não manda essa parte do JSON.
-    hud.SpectatedPlayer = gs.Player != null ? MapPlayer(gs.Player) : null;
-    hud.RoundPhase = gs.Round?.Phase.ToString() ?? string.Empty;
+    // "player" é sempre a câmera ativa: você mesmo jogando, ou quem o
+    // GOTV/observer está olhando agora.
+    var player = gs["player"] as JsonObject;
+    hud.SpectatedPlayer = player != null ? MapPlayer(Str(player["steamid"]), player) : null;
 
-    // AllPlayers só vem preenchido quando você está espectando/observando
-    // (ou em modo overview). Jogando, o GSI só te dá os dados do seu
-    // próprio jogador (gs.Player). Por isso o fallback abaixo.
-    // Declaramos o tipo explicitamente como IEnumerable<Player> porque os
-    // dois lados do "?:" abaixo são tipos concretos diferentes
-    // (Dictionary<...>.ValueCollection de um lado, Player[] do outro).
-    IEnumerable<Player> players = (gs.AllPlayers != null && gs.AllPlayers.Count > 0)
-        ? gs.AllPlayers.Values
-        : (gs.Player != null ? new[] { gs.Player } : Array.Empty<Player>());
-
-    foreach (var player in players)
+    // "allplayers" só vem espectando/observando. Jogando, o GSI só manda o
+    // seu próprio jogador - por isso o fallback.
+    if (gs["allplayers"] is JsonObject all && all.Count > 0)
     {
-        hud.Players.Add(MapPlayer(player));
+        foreach (var kv in all)
+        {
+            if (kv.Value is JsonObject p) hud.Players.Add(MapPlayer(kv.Key, p));
+        }
+    }
+    else if (hud.SpectatedPlayer != null)
+    {
+        hud.Players.Add(hud.SpectatedPlayer);
     }
 
     return hud;
 }
 
-static PlayerHudDto MapPlayer(Player player)
+static TeamScoreDto MapTeam(JsonObject? team)
 {
+    return new TeamScoreDto
+    {
+        TeamName = Str(team?["name"]),
+        Score = Int(team?["score"]),
+        ConsecutiveRoundLosses = Int(team?["consecutive_round_losses"]),
+        TimeoutsRemaining = Int(team?["timeouts_remaining"]),
+    };
+}
+
+static PlayerHudDto MapPlayer(string steamId, JsonObject player)
+{
+    var state = player["state"] as JsonObject;
+    var stats = player["match_stats"] as JsonObject;
+    var armor = Int(state?["armor"]);
+
     var dto = new PlayerHudDto
     {
-        SteamId = player.SteamID ?? string.Empty,
-        Nick = player.Name ?? string.Empty,
-        Team = player.Team.ToString(),
+        SteamId = steamId,
+        Nick = Str(player["name"]),
+        Team = Str(player["team"]),
 
-        Health = player.State?.Health ?? 0,
-        Armor = player.State?.Armor ?? 0,
-        HasArmor = (player.State?.Armor ?? 0) > 0,
-        HasHelmet = player.State?.HasHelmet ?? false,
-        HasDefuseKit = player.State?.HasDefuseKit ?? false,
+        Health = Int(state?["health"]),
+        Armor = armor,
+        HasArmor = armor > 0,
+        HasHelmet = Bool(state?["helmet"]),
+        HasDefuseKit = Bool(state?["defusekit"]),
 
-        Kills = player.MatchStats?.Kills ?? 0,
-        Deaths = player.MatchStats?.Deaths ?? 0,
-        Assists = player.MatchStats?.Assists ?? 0,
-        RoundKills = player.State?.RoundKills ?? 0,
+        Kills = Int(stats?["kills"]),
+        Deaths = Int(stats?["deaths"]),
+        Assists = Int(stats?["assists"]),
+        RoundKills = Int(state?["round_kills"]),
 
-        Money = player.State?.Money ?? 0,
-        EquipmentValue = player.State?.EquipmentValue ?? 0,
+        Money = Int(state?["money"]),
+        EquipmentValue = Int(state?["equip_value"]),
+
+        // Posição no mapa (allplayers_position; normalmente só espectando).
+        // Sem o dado fica 0,0,0 - a HUD trata isso como "sem posição".
+        Position = ParseVector(Str(player["position"])) ?? new PositionDto(),
     };
 
-    // Arma ativa + munição (clipe atual / clipe máximo / reserva)
-    var active = player.GetActiveWeapon();
-    dto.ActiveWeapon = active?.Name ?? string.Empty;
-    dto.AmmoClip = active?.AmmoClip ?? 0;
-    dto.AmmoClipMax = active?.AmmoClipMax ?? 0;
-    dto.AmmoReserve = active?.AmmoReserve ?? 0;
-
-    // Utilitários (granadas, flash, molotov, etc) que o jogador carrega
-    foreach (var weapon in GetWeapons(player))
+    if (player["weapons"] is JsonObject weapons)
     {
-        if (IsUtility(weapon))
+        foreach (var kv in weapons)
         {
-            dto.Utility.Add(weapon.Name ?? weapon.PaintKit ?? "unknown");
-            continue;
-        }
-        // arma principal / pistola (usadas na tela de pausa)
-        var typeName = weapon.Type.ToString();
-        if (typeName.Contains("Pistol", StringComparison.OrdinalIgnoreCase))
-            dto.Secondary = weapon.Name ?? string.Empty;
-        else if (typeName is "Rifle" or "SniperRifle" or "SubmachineGun" or "Shotgun" or "MachineGun")
-            dto.Primary = weapon.Name ?? string.Empty;
-    }
+            if (kv.Value is not JsonObject w) continue;
+            var name = Str(w["name"]);
+            // "Submachine Gun" -> "submachinegun", "SniperRifle" -> "sniperrifle"
+            var type = Str(w["type"]).Replace(" ", string.Empty).ToLowerInvariant();
 
-    // Posição no mapa (só vem preenchida em partidas com allplayers_position
-    // habilitado, e normalmente só quando espectando). Position é uma struct
-    // (Vector3D), então não dá pra comparar com null - se o dado não vier,
-    // ela simplesmente fica zerada (0,0,0).
-    dto.Position = new PositionDto
-    {
-        X = player.Position.X,
-        Y = player.Position.Y,
-        Z = player.Position.Z,
-    };
+            // arma na mão + munição
+            if (Str(w["state"]) == "active")
+            {
+                dto.ActiveWeapon = name;
+                dto.AmmoClip = Int(w["ammo_clip"]);
+                dto.AmmoClipMax = Int(w["ammo_clip_max"]);
+                dto.AmmoReserve = Int(w["ammo_reserve"]);
+            }
+
+            // granadas e C4 / pistola / arma principal (tela de pausa)
+            if (type is "grenade" or "c4") dto.Utility.Add(name);
+            else if (type == "pistol") dto.Secondary = name;
+            else if (type is "rifle" or "sniperrifle" or "submachinegun" or "shotgun" or "machinegun") dto.Primary = name;
+        }
+    }
 
     return dto;
 }
 
-// A lib expõe Player.Weapons; dependendo da versão isso é uma coleção
-// (List<Weapon>) ou um dicionário (Dictionary<string, Weapon>). O helper
-// abaixo lida com os dois casos sem quebrar.
-static IEnumerable<Weapon> GetWeapons(Player player)
-{
-    if (player.Weapons is IDictionary<string, Weapon> dict)
-        return dict.Values;
-
-    if (player.Weapons is IEnumerable<Weapon> list)
-        return list;
-
-    return Enumerable.Empty<Weapon>();
-}
-
-// Granadas: lemos direto do JSON bruto do GSI (nó "grenades") em vez da
-// API da lib, que muda entre versões. Formato de cada entrada:
+// Granadas (nó "grenades"). Formato de cada entrada:
 //   "123": { "owner": "7656...", "type": "smoke", "position": "x, y, z",
 //            "velocity": "x, y, z", "lifetime": "1.2", "effecttime": "0.0",
 //            "flames": { "flame_1": "x, y, z", ... } }   <- só no "inferno"
-static List<GrenadeDto> MapGrenades(JObject json)
+static List<GrenadeDto> MapGrenades(JsonObject json)
 {
     var list = new List<GrenadeDto>();
-    if (json["grenades"] is not JObject grenades) return list;
+    if (json["grenades"] is not JsonObject grenades) return list;
 
-    foreach (var prop in grenades.Properties())
+    foreach (var kv in grenades)
     {
-        if (prop.Value is not JObject g) continue;
+        if (kv.Value is not JsonObject g) continue;
         var dto = new GrenadeDto
         {
-            Id = prop.Name,
-            Owner = g["owner"]?.ToString() ?? string.Empty,
-            Type = g["type"]?.ToString() ?? string.Empty,
-            Position = ParseVector(g["position"]?.ToString()),
-            Velocity = ParseVector(g["velocity"]?.ToString()),
-            Lifetime = ParseDouble(g["lifetime"]?.ToString()),
-            EffectTime = ParseDouble(g["effecttime"]?.ToString()),
+            Id = kv.Key,
+            Owner = Str(g["owner"]),
+            Type = Str(g["type"]),
+            Position = ParseVector(Str(g["position"])),
+            Velocity = ParseVector(Str(g["velocity"])),
+            Lifetime = Num(g["lifetime"]),
+            EffectTime = Num(g["effecttime"]),
         };
-        if (g["flames"] is JObject flames)
+        if (g["flames"] is JsonObject flames)
         {
-            foreach (var flame in flames.Properties())
+            foreach (var flame in flames)
             {
-                var pos = ParseVector(flame.Value.ToString());
+                var pos = ParseVector(Str(flame.Value));
                 if (pos != null) dto.Flames.Add(pos);
             }
         }
         list.Add(dto);
     }
     return list;
+}
+
+// ---- leitura tolerante: o GSI manda números às vezes como número, às
+// vezes como texto ("12.5"), e booleanos como true/1 ----
+static string Str(JsonNode? node)
+{
+    if (node is not JsonValue v) return string.Empty;
+    return v.TryGetValue<string>(out var s) ? s : v.ToJsonString();
+}
+
+static double Num(JsonNode? node)
+{
+    if (node is not JsonValue v) return 0;
+    if (v.TryGetValue<double>(out var d)) return d;
+    return double.TryParse(Str(node), NumberStyles.Float, CultureInfo.InvariantCulture, out d) ? d : 0;
+}
+
+static int Int(JsonNode? node) => (int)Math.Round(Num(node));
+
+static bool Bool(JsonNode? node)
+{
+    if (node is not JsonValue v) return false;
+    if (v.TryGetValue<bool>(out var b)) return b;
+    return Num(node) != 0 || Str(node).Equals("true", StringComparison.OrdinalIgnoreCase);
 }
 
 // "x, y, z" -> PositionDto (ponto como separador decimal, independente do
@@ -338,28 +356,11 @@ static PositionDto? ParseVector(string? text)
     if (string.IsNullOrWhiteSpace(text)) return null;
     var parts = text.Split(',');
     if (parts.Length != 3) return null;
-    var inv = System.Globalization.CultureInfo.InvariantCulture;
-    var style = System.Globalization.NumberStyles.Float;
-    if (float.TryParse(parts[0].Trim(), style, inv, out var x) &&
-        float.TryParse(parts[1].Trim(), style, inv, out var y) &&
-        float.TryParse(parts[2].Trim(), style, inv, out var z))
+    if (float.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var x) &&
+        float.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var y) &&
+        float.TryParse(parts[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var z))
     {
         return new PositionDto { X = x, Y = y, Z = z };
     }
     return null;
-}
-
-static double ParseDouble(string? text)
-{
-    return double.TryParse(text, System.Globalization.NumberStyles.Float,
-        System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0;
-}
-
-static bool IsUtility(Weapon weapon)
-{
-    // Tipo vem como enum (ex: WeaponType.Grenade). Comparamos pelo texto
-    // pra não depender do nome exato do enum na versão instalada.
-    var typeName = weapon.Type.ToString();
-    return typeName.Contains("Grenade", StringComparison.OrdinalIgnoreCase)
-        || typeName.Contains("C4", StringComparison.OrdinalIgnoreCase);
 }

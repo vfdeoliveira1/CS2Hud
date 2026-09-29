@@ -8,11 +8,10 @@
     <!-- Roda no .NET 8 se existir; senão, na próxima versão principal instalada
          (9, 10...). Assim funciona em qualquer máquina com .NET 8 ou superior. -->
     <RollForward>Major</RollForward>
+    <!-- Não gera o CS2HudExporter.exe: o app roda pelo dotnet.exe (assinado
+         pela Microsoft). O Controle Inteligente de Aplicativos do Windows
+         bloqueia o .exe gerado, que não tem assinatura digital. -->
+    <UseAppHost>false</UseAppHost>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="CounterStrike2GSI" Version="1.0.4.2659" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-  </ItemGroup>
 
 </Project>
