@@ -5,6 +5,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Roda no .NET 8 se existir; senão, na próxima versão principal instalada
+         (9, 10...). Assim funciona em qualquer máquina com .NET 8 ou superior. -->
+    <RollForward>Major</RollForward>
   </PropertyGroup>
 
   <ItemGroup>

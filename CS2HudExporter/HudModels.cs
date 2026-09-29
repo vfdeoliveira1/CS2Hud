@@ -35,6 +35,29 @@ public class HudStateDto
     // espectador - vem certinho mesmo jogando. É a base pro timer
     // estimado no front-end.
     public string RoundPhase { get; set; } = string.Empty;
+
+    // Granadas/utilitários existindo no mapa agora (em voo, fumaças ativas,
+    // fogo queimando). Só vem espectando e com "allgrenades" "1" no .cfg.
+    public List<GrenadeDto> Grenades { get; set; } = new();
+
+    // Nome/logo dos times pelo lado atual (configurados no control.html).
+    // null no lado = padrão (COUNTER / TERRORIST).
+    public TeamsDto? Teams { get; set; }
+}
+
+/// <summary>
+/// Uma granada do nó "grenades" do GSI.
+/// </summary>
+public class GrenadeDto
+{
+    public string Id { get; set; } = string.Empty;    // id da entidade (estável enquanto ela existir)
+    public string Owner { get; set; } = string.Empty; // steamId de quem jogou
+    public string Type { get; set; } = string.Empty;  // smoke, decoy, firebomb, inferno, flashbang, frag
+    public PositionDto? Position { get; set; }
+    public PositionDto? Velocity { get; set; }
+    public double Lifetime { get; set; }   // segundos desde que foi lançada
+    public double EffectTime { get; set; } // segundos desde que o efeito começou (fumaça estourou); 0 = ainda não
+    public List<PositionDto> Flames { get; set; } = new(); // só "inferno": posição de cada foco de fogo
 }
 
 /// <summary>

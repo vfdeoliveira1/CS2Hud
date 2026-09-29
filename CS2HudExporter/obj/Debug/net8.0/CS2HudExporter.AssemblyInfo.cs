@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CS2HudExporter")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bd9d812fbd8f434d8b37dddcb9406790075add69")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+0592a5ddb0d2ca740eac416700499d9dd76aecd0")]
 [assembly: System.Reflection.AssemblyProductAttribute("CS2HudExporter")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CS2HudExporter")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

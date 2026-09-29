@@ -206,6 +206,7 @@
       "outputPath": "D:\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
+        "D:\\Documentos\\Github\\CS2Hud\\CS2HudExporter\\NuGet.Config",
         "C:\\Users\\Vinic\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [

@@ -44,6 +44,10 @@ builder.Services.AddCors(options =>
 // que o CS2 manda (várias vezes por segundo).
 builder.Logging.SetMinimumLevel(LogLevel.Warning);
 
+// Times (nome + logo) configurados pelo painel control.html. Ficam salvos
+// num teams.json na pasta do projeto, pra sobreviver a reinícios.
+var teams = new TeamsStore(Path.Combine(builder.Environment.ContentRootPath, "teams.json"));
+
 var app = builder.Build();
 app.UseCors();
 
@@ -53,10 +57,43 @@ app.MapGet("/api/hud", () =>
 {
     lock (stateLock)
     {
-        return latestHudState is null
-            ? Results.Json(new { message = "Nenhum dado recebido do CS2 ainda." }, statusCode: 204)
-            : Results.Ok(latestHudState);
+        if (latestHudState is null)
+            return Results.Json(new { message = "Nenhum dado recebido do CS2 ainda." }, statusCode: 204);
+        latestHudState.Teams = teams.Resolve(latestHudState.Players);
+        return Results.Ok(latestHudState);
     }
+});
+
+// ---- Painel de times (control.html) ----
+List<PlayerHudDto> CurrentPlayers()
+{
+    lock (stateLock) { return latestHudState?.Players ?? new List<PlayerHudDto>(); }
+}
+
+app.MapGet("/api/teams", () => Results.Ok(teams.Resolve(CurrentPlayers(), includeLogoData: true)));
+
+app.MapPost("/api/teams", (TeamsDto input) =>
+{
+    teams.Set(input, CurrentPlayers());
+    return Results.Ok(teams.Resolve(CurrentPlayers(), includeLogoData: true));
+});
+
+app.MapPost("/api/teams/swap", () =>
+{
+    teams.Swap(CurrentPlayers());
+    return Results.Ok(teams.Resolve(CurrentPlayers(), includeLogoData: true));
+});
+
+app.MapDelete("/api/teams", () =>
+{
+    teams.Clear();
+    return Results.Ok(teams.Resolve(CurrentPlayers(), includeLogoData: true));
+});
+
+app.MapGet("/api/teams/logo/{id}", (string id) =>
+{
+    var logo = teams.GetLogo(id);
+    return logo is null ? Results.NotFound() : Results.File(logo.Value.Bytes, logo.Value.ContentType);
 });
 
 // Endpoint que recebe o POST do próprio jogo (configurado no .cfg pra
@@ -78,8 +115,10 @@ app.MapPost("/", async (HttpRequest request) =>
             return Results.Ok(); // heartbeat vazio ou corpo cortado - ignora
         }
 
-        var gs = new CounterStrike2GSI.GameState(JObject.Parse(body));
+        var json = JObject.Parse(body);
+        var gs = new CounterStrike2GSI.GameState(json);
         var hud = MapGameStateToHud(gs);
+        hud.Grenades = MapGrenades(json);
 
         lock (stateLock)
         {
@@ -247,6 +286,66 @@ static IEnumerable<Weapon> GetWeapons(Player player)
         return list;
 
     return Enumerable.Empty<Weapon>();
+}
+
+// Granadas: lemos direto do JSON bruto do GSI (nó "grenades") em vez da
+// API da lib, que muda entre versões. Formato de cada entrada:
+//   "123": { "owner": "7656...", "type": "smoke", "position": "x, y, z",
+//            "velocity": "x, y, z", "lifetime": "1.2", "effecttime": "0.0",
+//            "flames": { "flame_1": "x, y, z", ... } }   <- só no "inferno"
+static List<GrenadeDto> MapGrenades(JObject json)
+{
+    var list = new List<GrenadeDto>();
+    if (json["grenades"] is not JObject grenades) return list;
+
+    foreach (var prop in grenades.Properties())
+    {
+        if (prop.Value is not JObject g) continue;
+        var dto = new GrenadeDto
+        {
+            Id = prop.Name,
+            Owner = g["owner"]?.ToString() ?? string.Empty,
+            Type = g["type"]?.ToString() ?? string.Empty,
+            Position = ParseVector(g["position"]?.ToString()),
+            Velocity = ParseVector(g["velocity"]?.ToString()),
+            Lifetime = ParseDouble(g["lifetime"]?.ToString()),
+            EffectTime = ParseDouble(g["effecttime"]?.ToString()),
+        };
+        if (g["flames"] is JObject flames)
+        {
+            foreach (var flame in flames.Properties())
+            {
+                var pos = ParseVector(flame.Value.ToString());
+                if (pos != null) dto.Flames.Add(pos);
+            }
+        }
+        list.Add(dto);
+    }
+    return list;
+}
+
+// "x, y, z" -> PositionDto (ponto como separador decimal, independente do
+// idioma do Windows)
+static PositionDto? ParseVector(string? text)
+{
+    if (string.IsNullOrWhiteSpace(text)) return null;
+    var parts = text.Split(',');
+    if (parts.Length != 3) return null;
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var style = System.Globalization.NumberStyles.Float;
+    if (float.TryParse(parts[0].Trim(), style, inv, out var x) &&
+        float.TryParse(parts[1].Trim(), style, inv, out var y) &&
+        float.TryParse(parts[2].Trim(), style, inv, out var z))
+    {
+        return new PositionDto { X = x, Y = y, Z = z };
+    }
+    return null;
+}
+
+static double ParseDouble(string? text)
+{
+    return double.TryParse(text, System.Globalization.NumberStyles.Float,
+        System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0;
 }
 
 static bool IsUtility(Weapon weapon)
