@@ -267,6 +267,7 @@
 
   /* jogador com a bomba na mão: o próprio ponto dele fica vermelho, mas
       continua mostrando o número. */
+  .dot.otherLevel{opacity:.35}
   .dot.bombCarrier{background:#E0201B;border-color:#fff;color:#fff}
     .dot.bombCarrier .dotIcon{display:none}
 
@@ -613,16 +614,18 @@
     weapon_knife: 'knife', weapon_bayonet: 'bayonet'
   };
 
-  // Calibração de radar (fonte: arquivos de overview do próprio jogo —
-  // "pos_x"/"pos_y"/"scale" — valores aproximados da comunidade; ajuste
-  // fino pode ser necessário mapa a mapa).
+  // Calibração de radar (fonte: resource/overviews/<mapa>.txt do jogo —
+  // "pos_x"/"pos_y"/"scale"). lowerBelow = altura (z) abaixo da qual o
+  // jogador está no andar de baixo ("verticalsections" > "lower"
+  // AltitudeMax); o radar usa então icons/maps/<mapa>_lower.png, se existir.
   var RADAR_CAL = {
     de_dust2:    { x: -2476, y: 3239, scale: 4.4 },
     de_mirage:   { x: -3230, y: 1713, scale: 5.0 },
     de_inferno:  { x: -2087, y: 3870, scale: 4.9 },
-    de_nuke:     { x: -3453, y: 2887, scale: 7.0 },
+    de_nuke:     { x: -3453, y: 2887, scale: 7.0, lowerBelow: -495 },
     de_overpass: { x: -4831, y: 1781, scale: 5.2 },
-    de_vertigo:  { x: -3168, y: 1762, scale: 4.0 },
+    de_vertigo:  { x: -3168, y: 1762, scale: 4.0, lowerBelow: 11700 },
+    de_cache:    { x: -2000, y: 3250, scale: 5.5 },
     de_ancient:  { x: -2953, y: 2164, scale: 5.0 },
     de_anubis:   { x: -2796, y: 3328, scale: 5.22 },
     de_train:    { x: -2477, y: 2392, scale: 4.7 }
@@ -1825,18 +1828,54 @@
   // Chamado a cada poll (rede) - só atualiza ONDE cada ponto deve ir,
   // nunca mexe em style.left/top diretamente. Quem desenha é o loop de
   // animação (radarAnimLoop), separado e rodando a 60fps.
-  function renderRadar(players, mapName, bomb){
+  // Andares (Nuke/Vertigo): o radar mostra o andar do jogador espectado;
+  // quem está no outro andar fica apagado. Só liga se <mapa>_lower.png existir.
+  var radarLevel = 'default';
+  var lowerImgOk = {};
+
+  function setRadarImage(mapName, level){
+    var mapImg = $('radarMapImg');
+    mapImg.onerror = function(){ mapImg.style.display = 'none'; $('radarGrid').style.display = 'block'; };
+    mapImg.onload = function(){ mapImg.style.display = 'block'; $('radarGrid').style.display = 'none'; };
+    mapImg.src = mapName ? (MAPS_PATH + mapName + (level === 'lower' ? '_lower' : '') + '.png') : '';
+  }
+
+  // true se a altura z está no andar que NÃO é o mostrado no radar agora
+  function onOtherLevel(z, mapName){
+    var cal = RADAR_CAL[mapName];
+    if(!cal || cal.lowerBelow == null || !lowerImgOk[mapName] || typeof z !== 'number') return false;
+    return (z < cal.lowerBelow) !== (radarLevel === 'lower');
+  }
+
+  function renderRadar(players, mapName, bomb, spectated){
     // troca a imagem do mapa só quando o mapa muda (evita recarregar o
     // arquivo a cada poll).
     if(mapName !== lastRadarMap){
       lastRadarMap = mapName;
-      var mapImg = $('radarMapImg');
-      mapImg.onerror = function(){ mapImg.style.display = 'none'; $('radarGrid').style.display = 'block'; };
-      mapImg.onload = function(){ mapImg.style.display = 'block'; $('radarGrid').style.display = 'none'; };
-      mapImg.src = mapName ? (MAPS_PATH + mapName + '.png') : '';
+      radarLevel = 'default';
+      setRadarImage(mapName, radarLevel);
+      var calNew = RADAR_CAL[mapName];
+      if(mapName && calNew && calNew.lowerBelow != null && lowerImgOk[mapName] === undefined){
+        lowerImgOk[mapName] = false;
+        var probe = new Image();
+        probe.onload = function(){ lowerImgOk[mapName] = true; };
+        probe.src = MAPS_PATH + mapName + '_lower.png';
+      }
     }
 
     var cal = RADAR_CAL[mapName];
+
+    // andar do jogador espectado (vivo e com posição); morto/sem posição
+    // mantém o andar atual
+    if(cal && cal.lowerBelow != null && lowerImgOk[mapName] && spectated){
+      var specP = null;
+      players.forEach(function(p){ if(String(p.steamId) === String(spectated.steamId)) specP = p; });
+      var sp = specP && !specP.isDead && specP.position;
+      if(sp && !(sp.x === 0 && sp.y === 0 && sp.z === 0)){
+        var lvl = sp.z < cal.lowerBelow ? 'lower' : 'default';
+        if(lvl !== radarLevel){ radarLevel = lvl; setRadarImage(mapName, radarLevel); }
+      }
+    }
     var withPos = players.filter(function(p){
       return p.position && !(p.position.x === 0 && p.position.y === 0 && p.position.z === 0);
     });
@@ -1893,10 +1932,10 @@
         // tinha nada salvo), é melhor não mostrar X do que mostrar errado.
         if(!deathPos[p.steamId] && lastAlivePos[p.steamId]){
           var src = lastAlivePos[p.steamId];
-          deathPos[p.steamId] = { x: src.x, y: src.y };
+          deathPos[p.steamId] = { x: src.x, y: src.y, z: src.z };
         }
       } else if(hasPos){
-        lastAlivePos[p.steamId] = { x: p.position.x, y: p.position.y };
+        lastAlivePos[p.steamId] = { x: p.position.x, y: p.position.y, z: p.position.z };
       }
 
       var worldPos = p.isDead ? deathPos[p.steamId] : (hasPos ? p.position : null);
@@ -1935,6 +1974,7 @@
         slot.numEl.textContent = String(p.hudIndex);
         slot.iconEl.style.display = 'none';
       }
+      if(onOtherLevel(worldPos.z, mapName)) slot.el.className += ' otherLevel';
       seen[p.hudIndex] = true;
     });
 
@@ -1951,7 +1991,7 @@
           s.isDeadMark = true;
           setSlotTarget(s, fallbackPos.xPct, fallbackPos.yPct);
           var team = lastTeam[ownerSteamId] || 'CT';
-          s.el.className = 'dot dead ' + (team === 'CT' ? 'ct' : 'tr');
+          s.el.className = 'dot dead ' + (team === 'CT' ? 'ct' : 'tr') + (onOtherLevel(deathPos[ownerSteamId].z, mapName) ? ' otherLevel' : '');
           s.el.title = (lastNick[ownerSteamId] || '?') + ' (morto)';
           s.numEl.textContent = '✕';
           s.iconEl.style.display = 'none';
@@ -1979,7 +2019,7 @@
         bombSlot.active = true;
         setSlotTarget(bombSlot, bpos.xPct, bpos.yPct);
         var isPlanted = bState === 'planted' || bState === 'defusing';
-        bombSlot.el.className = 'dot bomb' + (isPlanted ? ' planted' : '');
+        bombSlot.el.className = 'dot bomb' + (isPlanted ? ' planted' : '') + (onOtherLevel(bPos.z, mapName) ? ' otherLevel' : '');
         bombSlot.el.title = 'Bomba: ' + bState + (isPlanted ? ' (local exato)' : '');
         bombSlot.numEl.textContent = '';
         bombSlot.iconEl.style.display = 'block';
@@ -2347,7 +2387,7 @@
     renderRoster($('rosterCT'), ctPlayers, LAYOUT.left, 0);
     renderRoster($('rosterT'), tPlayers, LAYOUT.right, 5);
 
-    renderRadar(ctPlayers.concat(tPlayers), state.map, state.bomb);
+    renderRadar(ctPlayers.concat(tPlayers), state.map, state.bomb, state.spectatedPlayer || null);
     if(state.map) saveDeaths(state);
     updateUtility(state.grenades || [], state.map);
     renderSpectator(state.spectatedPlayer || null);

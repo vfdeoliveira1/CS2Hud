@@ -137,6 +137,12 @@ A HUD pode mostrar a webcam do jogador em destaque, acima da barra "espectando".
 
 As câmeras de todos ficam carregadas (escondidas) pra troca ser instantânea: cada uma consome até ~1,5 Mbps de download na máquina da transmissão.
 
+### Imagens do radar
+
+Coloque o radar oficial de cada mapa em `CS2Hud/icons/maps/` como `de_<mapa>.png` (quadrado, sem corte; ex.: `de_mirage.png`). Mapas calibrados: dust2, mirage, inferno, nuke, overpass, vertigo, ancient, anubis, train e cache.
+
+Nuke e Vertigo têm dois andares: coloque também `de_nuke_lower.png` / `de_vertigo_lower.png` e o radar troca de andar sozinho conforme o jogador espectado, deixando apagado quem está no outro andar. Sem a imagem `_lower`, fica só a imagem principal.
+
 ### 4) Veto de mapas (picks e bans)
 
 Abra no navegador:
