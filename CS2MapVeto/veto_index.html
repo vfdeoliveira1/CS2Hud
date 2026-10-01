@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS2 Map Veto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#131a22; --panel2:#1a232d;
+    --bone:#EDEFF2; --steel:#78848F; --line:rgba(237,239,242,.13);
+    --ct:#6E9EDA; --tr:#D9A441;
+    --a:#A08CFF;   /* cor do Time A */
+    --b:#4FD1A5;   /* cor do Time B */
+    --ban:#E0645A; --pick:#6FCF97;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--bone);font-family:'Barlow Condensed',sans-serif;min-height:100vh;padding:28px 16px}
+  .wrap{max-width:1500px;margin:0 auto}
+  h1{font-family:'Anton',sans-serif;font-weight:400;font-size:34px;letter-spacing:.05em}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .ta{color:var(--a)} .tb{color:var(--b)}
+  button{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+    padding:12px 20px;border:1px solid var(--line);background:var(--panel2);color:var(--bone);cursor:pointer}
+  button:hover:not(:disabled){border-color:var(--bone)}
+  button:disabled{opacity:.35;cursor:default}
+  button.primary{background:var(--bone);color:var(--bg);border-color:var(--bone)}
+  .hidden{display:none !important}
+
+  /* ---------- tela 1: configuração ---------- */
+  .setup{max-width:720px;margin:6vh auto 0;background:var(--panel);border:1px solid var(--line);padding:32px}
+  .setup h1{margin-bottom:24px}
+  .setup label{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--steel);margin-bottom:6px}
+  .names{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+  @media (max-width:600px){ .names{grid-template-columns:1fr} }
+  .names input{width:100%;background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--a);color:var(--bone);
+    font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase;padding:10px 12px;outline:none}
+  .names .b input{border-left-color:var(--b)}
+  .names input:focus{border-color:var(--bone)}
+  .names input[readonly]{opacity:.9;cursor:default}
+  .fromCtl{display:flex;align-items:center;gap:12px;margin:-12px 0 24px;flex-wrap:wrap;
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel)}
+  .fromCtl.ok{color:var(--pick)}
+  .fromCtl button{padding:8px 12px;font-size:11px}
+  .formats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
+  .formats button{padding:22px 10px;font-size:26px;font-family:'Anton',sans-serif;font-weight:400;letter-spacing:.06em}
+  .formats button small{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--steel);margin-top:6px;text-transform:none}
+  .formats button.on{border-color:var(--bone);background:var(--bone);color:var(--bg)}
+  .formats button.on small{color:#333}
+  .setup .go{width:100%;padding:16px;font-size:15px}
+
+  /* ---------- tela 2: veto ---------- */
+  .top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .top .vs{font-family:'Anton',sans-serif;font-size:30px;letter-spacing:.04em}
+  .top .vs .x{color:var(--steel);font-size:18px;margin:0 10px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.14em;padding:5px 10px;border:1px solid var(--line)}
+  .top .spacer{flex:1}
+
+  .steps{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+  .step{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.1em;padding:6px 10px;
+    border:1px solid var(--line);color:var(--steel);text-transform:uppercase}
+  .step.cur{color:var(--bg);background:var(--bone);border-color:var(--bone)}
+  .step.done{opacity:.5}
+  .step .t{font-weight:700}
+
+  .prompt{background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--steel);padding:18px 22px;margin-bottom:18px;
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;min-height:84px}
+  .prompt.A{border-left-color:var(--a)} .prompt.B{border-left-color:var(--b)}
+  .prompt .who{font-family:'Anton',sans-serif;font-size:34px;letter-spacing:.04em;text-transform:uppercase}
+  .prompt .what{font-size:26px;font-weight:700;text-transform:uppercase}
+  .prompt .what.ban{color:var(--ban)} .prompt .what.pick{color:var(--pick)}
+  .prompt .sides{display:flex;gap:10px;margin-left:auto}
+  .prompt .sides button{font-size:18px;padding:14px 28px}
+  .prompt .sides .ct{border-color:var(--ct);color:var(--ct)} .prompt .sides .ct:hover{background:var(--ct);color:var(--bg)}
+  .prompt .sides .tr{border-color:var(--tr);color:var(--tr)} .prompt .sides .tr:hover{background:var(--tr);color:var(--bg)}
+
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px}
+  @media (max-width:1100px){ .grid{grid-template-columns:repeat(4,1fr)} }
+  @media (max-width:640px){ .grid{grid-template-columns:repeat(2,1fr)} }
+  .map{position:relative;aspect-ratio:3/4;background:linear-gradient(160deg,#243140,#10161d);border:2px solid var(--line);
+    overflow:hidden;cursor:pointer;text-align:left;padding:0;display:block;transition:transform .15s,border-color .15s}
+  .map:hover:not(:disabled){transform:translateY(-3px);border-color:var(--bone)}
+  .map:disabled{cursor:default;opacity:1} /* não apaga o card; banido já tem o próprio visual */
+  .map img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .map .shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 40%,rgba(0,0,0,.85))}
+  .map .name{position:absolute;left:12px;right:12px;bottom:12px;font-family:'Anton',sans-serif;font-size:28px;letter-spacing:.05em;
+    text-transform:uppercase;color:#fff;line-height:1}
+  .map .tag{position:absolute;left:0;right:0;top:0;padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase;color:var(--bg);display:none}
+  .map .tag span{display:block;font-family:'Barlow Condensed',sans-serif;font-size:20px;letter-spacing:.02em;margin-top:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .map .side{position:absolute;left:12px;right:12px;bottom:48px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.06em}
+  .map.banned img{filter:grayscale(1) brightness(.35)}
+  .map.banned{border-color:var(--ban)}
+  .map.banned .tag{display:block;background:var(--ban)}
+  .map.banned .name{color:rgba(255,255,255,.5);text-decoration:line-through}
+  .map.picked{border-color:var(--pick)}
+  .map.picked .tag{display:block;background:var(--pick)}
+  .map.decider{border-color:var(--bone)}
+  .map.decider .tag{display:block;background:var(--bone)}
+  .map.awaiting{box-shadow:0 0 0 3px var(--bone);animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{50%{box-shadow:0 0 0 3px rgba(237,239,242,.25)}}
+
+  .bottom{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .bottom .spacer{flex:1}
+
+  /* ---------- tela 3: resultado ---------- */
+  .result h2{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.2em;color:var(--steel);margin:26px 0 12px;text-transform:uppercase}
+  /* cards com largura fixa (máx. 290px): com poucos mapas (MD1) o card não
+     estica pra tela toda */
+  .series{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,290px));gap:12px}
+  .sMap{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--pick);overflow:hidden}
+  .sMap.decider{border-top-color:var(--bone)}
+  .sMap .img{position:relative;aspect-ratio:16/9;background:linear-gradient(160deg,#243140,#10161d)}
+  .sMap .img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .sMap .num{position:absolute;left:10px;top:10px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.14em;
+    background:rgba(0,0,0,.7);padding:4px 8px}
+  .sMap .body{padding:12px 14px}
+  .sMap .mn{font-family:'Anton',sans-serif;font-size:30px;letter-spacing:.05em;text-transform:uppercase;line-height:1}
+  .sMap .info{font-size:19px;margin-top:6px;line-height:1.3}
+  .sMap .info b{font-weight:700}
+  .ctc{color:var(--ct)} .trc{color:var(--tr)}
+  .bans{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  .bans div{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--ban);padding:10px 14px;font-size:20px}
+  .bans div b{font-family:'Anton',sans-serif;font-weight:400;font-size:22px;letter-spacing:.05em;text-transform:uppercase;margin-right:6px}
+  .order{list-style:none;counter-reset:o;display:flex;flex-direction:column;gap:6px}
+  .order li{counter-increment:o;background:var(--panel);border:1px solid var(--line);padding:9px 14px;font-size:19px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+  /* gestão da série (placar, vencedor, mapa ao vivo) - vai pra HUD */
+  .hudStatus{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;margin-left:10px;text-transform:none}
+  .hudStatus.ok{color:var(--pick)} .hudStatus.err{color:var(--ban)}
+  .manage{display:flex;flex-direction:column;gap:8px}
+  .mRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);padding:10px 14px}
+  .mRow.live{border-color:var(--pick)}
+  .mRow .mn2{font-family:'Anton',sans-serif;font-size:22px;letter-spacing:.05em;text-transform:uppercase;min-width:150px}
+  .mRow .mn2 small{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--steel)}
+  .mRow .tbtn{font-family:'Barlow Condensed',sans-serif;font-size:19px;letter-spacing:.02em;text-transform:uppercase;padding:8px 14px;min-width:120px}
+  .mRow .tbtn.a.win{background:var(--a);border-color:var(--a);color:var(--bg)}
+  .mRow .tbtn.b.win{background:var(--b);border-color:var(--b);color:var(--bg)}
+  .mRow input{width:64px;background:var(--panel2);border:1px solid var(--line);color:var(--bone);text-align:center;
+    font-family:'Anton',sans-serif;font-size:24px;padding:4px 6px;outline:none}
+  .mRow input:focus{border-color:var(--bone)}
+  .mRow .colon{font-family:'Anton',sans-serif;font-size:22px;color:var(--steel)}
+  .mRow .liveBtn{margin-left:auto}
+  .mRow .liveBtn.on{background:var(--pick);border-color:var(--pick);color:var(--bg)}
+  .manageHelp{color:var(--steel);font-size:17px;margin-top:8px}
+
+  .order li::before{content:counter(o);font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel);width:18px}
+  .order .k{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.1em;padding:3px 7px;color:var(--bg)}
+  .order .k.ban{background:var(--ban)} .order .k.pick{background:var(--pick)} .order .k.dec{background:var(--bone)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== tela 1: times e formato ===== -->
+  <section class="setup" id="setupScreen">
+    <h1>VETO DE MAPAS</h1>
+    <div class="names">
+      <div><label for="nameA">Time A (começa)</label><input id="nameA" maxlength="30" placeholder="TIME A" autocomplete="off"></div>
+      <div class="b"><label for="nameB">Time B</label><input id="nameB" maxlength="30" placeholder="TIME B" autocomplete="off"></div>
+    </div>
+    <div class="fromCtl" id="fromCtl">
+      <span id="fromCtlText">Buscando os times do control.html…</span>
+      <button type="button" id="swapAB" class="hidden">Trocar A ⇄ B</button>
+    </div>
+    <label>Formato</label>
+    <div class="formats" id="formats">
+      <button type="button" data-bo="1">MD1<small>6 bans, sobra o mapa</small></button>
+      <button type="button" data-bo="3">MD3<small>ban, ban, pick, pick, ban, ban</small></button>
+      <button type="button" data-bo="5">MD5<small>ban, ban, 4 picks</small></button>
+    </div>
+    <button class="primary go" id="startBtn" disabled>Começar veto</button>
+  </section>
+
+  <!-- ===== tela 2: bans e picks ===== -->
+  <section class="hidden" id="vetoScreen">
+    <div class="top">
+      <span class="badge" id="formatBadge">MD3</span>
+      <span class="vs"><span class="ta" id="vsA">TIME A</span><span class="x">VS</span><span class="tb" id="vsB">TIME B</span></span>
+    </div>
+    <div class="steps" id="steps"></div>
+    <div class="prompt" id="prompt"></div>
+    <div class="grid" id="grid"></div>
+    <div class="bottom">
+      <button id="undoBtn">Desfazer</button>
+      <span class="spacer"></span>
+      <button id="restartBtn">Recomeçar</button>
+    </div>
+  </section>
+
+  <!-- ===== tela 3: resultado ===== -->
+  <section class="hidden result" id="resultScreen">
+    <div class="top">
+      <span class="badge" id="resFormat">MD3</span>
+      <span class="vs"><span class="ta" id="resA">TIME A</span><span class="x">VS</span><span class="tb" id="resB">TIME B</span></span>
+      <span class="spacer"></span>
+      <button id="resUndo">Voltar</button>
+      <button class="primary" id="resNew">Novo veto</button>
+    </div>
+    <h2>Mapas da série</h2>
+    <div class="series" id="resSeries"></div>
+    <h2>Série na HUD <span class="hudStatus" id="hudStatus"></span></h2>
+    <div class="manage" id="resManage"></div>
+    <p class="manageHelp">Digite o placar final de cada mapa (o vencedor é marcado sozinho, ou clique no nome do time) e marque o mapa
+      que está sendo jogado com <b>AO VIVO</b>. Tudo vai direto pra HUD (o CS2HudExporter precisa estar rodando). Use nos times os
+      mesmos nomes do control.html, pra HUD ligar a logo e os quadrados da série.</p>
+    <h2>Banidos</h2>
+    <div class="bans" id="resBans"></div>
+    <h2>Ordem completa</h2>
+    <ol class="order" id="resOrder"></ol>
+  </section>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // =====================================================================
+  // CONFIGURAÇÃO
+  // =====================================================================
+  // Imagens: pasta "maps" ao lado deste arquivo, com o id do mapa como
+  // nome. Aceita .jpg, .png ou .webp (tenta nessa ordem).
+  var MAPS = [
+    { id: 'mirage',  name: 'Mirage' },
+    { id: 'dust2',   name: 'Dust II' },
+    { id: 'cache',   name: 'Cache' },
+    { id: 'inferno', name: 'Inferno' },
+    { id: 'anubis',  name: 'Anubis' },
+    { id: 'ancient', name: 'Ancient' },
+    { id: 'nuke',    name: 'Nuke' }
+  ];
+  var IMG_DIR = './maps/';
+  var IMG_EXTS = ['.jpg', '.png', '.webp'];
+
+  // Sequência de cada formato (A = Time A, B = Time B). O mapa que sobra
+  // no fim é o decisivo. Depois de cada pick, o OUTRO time escolhe o lado
+  // em que começa naquele mapa.
+  var FLOWS = {
+    1: [['A','ban'],['B','ban'],['A','ban'],['B','ban'],['A','ban'],['B','ban']],
+    3: [['A','ban'],['B','ban'],['A','pick'],['B','pick'],['A','ban'],['B','ban']],
+    5: [['A','ban'],['B','ban'],['A','pick'],['B','pick'],['A','pick'],['B','pick']]
+  };
+  var STORE_KEY = 'cs2veto.state';
+
+  // =====================================================================
+  // ESTADO
+  // =====================================================================
+  // actions: [{ team:'A'|'B', type:'ban'|'pick', map:id, side:{team, side:'CT'|'TR'} }]
+  var state = { bo: 0, nameA: '', nameB: '', started: false, actions: [], results: {}, current: -1 };
+  var API_BASE = 'http://localhost:5000'; // CS2HudExporter
+
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(t){ var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
+  function teamName(t){ return t === 'A' ? (state.nameA || 'Time A') : (state.nameB || 'Time B'); }
+  function other(t){ return t === 'A' ? 'B' : 'A'; }
+  function mapById(id){ for(var i = 0; i < MAPS.length; i++) if(MAPS[i].id === id) return MAPS[i]; return null; }
+  function teamSpan(t){ return '<span class="' + (t === 'A' ? 'ta' : 'tb') + '">' + esc(teamName(t)) + '</span>'; }
+  function sideSpan(s){ return '<span class="' + (s === 'CT' ? 'ctc' : 'trc') + '">' + s + '</span>'; }
+
+  function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e){} }
+  function load(){
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      if(s && FLOWS[s.bo] && Array.isArray(s.actions)){
+        state = s;
+        state.results = state.results || {};
+        if(typeof state.current !== 'number') state.current = -1;
+      }
+    } catch(e){}
+  }
+
+  // Situação atual: qual passo, e se tem um lado pendente de escolha
+  function status(){
+    var flow = FLOWS[state.bo] || [];
+    var last = state.actions[state.actions.length - 1];
+    if(last && last.type === 'pick' && !last.side) return { kind: 'side', action: last };
+    if(state.actions.length < flow.length){
+      var st = flow[state.actions.length];
+      return { kind: 'choose', team: st[0], type: st[1] };
+    }
+    return { kind: 'done' };
+  }
+  function usedMaps(){ return state.actions.map(function(a){ return a.map; }); }
+  function deciderId(){
+    var used = usedMaps();
+    var left = MAPS.filter(function(m){ return used.indexOf(m.id) === -1; });
+    return left.length === 1 ? left[0].id : null;
+  }
+
+  // imagem com fallback .jpg -> .png -> .webp -> sem imagem (fica o degradê)
+  function mapImg(id){
+    var img = document.createElement('img');
+    img.alt = '';
+    var i = 0;
+    img.onerror = function(){
+      i++;
+      if(i < IMG_EXTS.length) img.src = IMG_DIR + id + IMG_EXTS[i];
+      else img.remove();
+    };
+    img.src = IMG_DIR + id + IMG_EXTS[0];
+    return img;
+  }
+
+  // =====================================================================
+  // TELAS
+  // =====================================================================
+  function show(screen){
+    ['setupScreen', 'vetoScreen', 'resultScreen'].forEach(function(id){ $(id).classList.toggle('hidden', id !== screen); });
+  }
+
+  function render(){
+    if(!state.started){ renderSetup(); show('setupScreen'); clearSeries(); return; }
+    var st = status();
+    if(st.kind === 'done'){ renderResult(); renderManage(); show('resultScreen'); syncSeries(); return; }
+    clearSeries(); // veto voltou a ficar incompleto: tira a série da HUD
+    renderVeto(st); show('vetoScreen');
+  }
+
+  // ---- nomes dos times vindos do control.html (via exportador) ----
+  // Time A = time que está de CT no control.html, Time B = de TR (o botão
+  // "Trocar A ⇄ B" inverte). Assim o nome no veto é sempre igual ao da HUD
+  // (é por ele que a HUD liga logo e quadrados da série).
+  var ctlNames = null; // { ct, t } ou null (exportador offline / sem nomes)
+  function applyCtlNames(){
+    var locked = !!ctlNames;
+    if(locked){
+      state.nameA = state.swapAB ? ctlNames.t : ctlNames.ct;
+      state.nameB = state.swapAB ? ctlNames.ct : ctlNames.t;
+      save();
+    }
+    $('nameA').readOnly = locked;
+    $('nameB').readOnly = locked;
+    $('swapAB').classList.toggle('hidden', !locked);
+    $('fromCtl').className = 'fromCtl' + (locked ? ' ok' : '');
+    $('fromCtlText').textContent = locked
+      ? '✓ Nomes vindos do control.html (Time A = time de ' + (state.swapAB ? 'TR' : 'CT') + ' lá)'
+      : 'Sem times no control.html (ou exportador fechado): digite os nomes - use os mesmos do control.html';
+  }
+  function loadCtlNames(){
+    fetch(API_BASE + '/api/teams', { cache: 'no-store' })
+      .then(function(res){ return res.ok ? res.json() : null; })
+      .then(function(d){
+        var ct = d && d.ct && d.ct.name, t = d && d.t && d.t.name;
+        ctlNames = ct && t ? { ct: ct, t: t } : null;
+      })
+      .catch(function(){ ctlNames = null; })
+      .then(function(){ if(!state.started){ applyCtlNames(); renderSetup(); } });
+  }
+
+  function renderSetup(){
+    $('nameA').value = state.nameA;
+    $('nameB').value = state.nameB;
+    [].forEach.call($('formats').children, function(b){ b.classList.toggle('on', Number(b.dataset.bo) === state.bo); });
+    $('startBtn').disabled = !FLOWS[state.bo];
+  }
+
+  function renderVeto(st){
+    $('formatBadge').textContent = 'MD' + state.bo;
+    $('vsA').textContent = teamName('A');
+    $('vsB').textContent = teamName('B');
+
+    // linha de passos
+    var flow = FLOWS[state.bo];
+    $('steps').innerHTML = flow.map(function(f, i){
+      var cls = i < state.actions.length ? 'done' : (i === state.actions.length && st.kind === 'choose' ? 'cur' : '');
+      return '<span class="step ' + cls + '">' + (f[1] === 'ban' ? 'Ban' : 'Pick') + ' · <span class="t">' + esc(teamName(f[0])) + '</span></span>';
+    }).join('') + '<span class="step">Decisivo</span>';
+
+    // instrução do momento
+    var prompt = $('prompt');
+    if(st.kind === 'side'){
+      var chooser = other(st.action.team);
+      prompt.className = 'prompt ' + chooser;
+      prompt.innerHTML = '<span class="who">' + teamSpan(chooser) + '</span>' +
+        '<span class="what">escolhe o lado inicial em ' + esc(mapById(st.action.map).name) + '</span>' +
+        '<span class="sides"><button class="ct" data-side="CT">Começar CT</button><button class="tr" data-side="TR">Começar TR</button></span>';
+      [].forEach.call(prompt.querySelectorAll('.sides button'), function(b){
+        b.addEventListener('click', function(){
+          st.action.side = { team: chooser, side: b.dataset.side };
+          save(); render();
+        });
+      });
+    } else {
+      prompt.className = 'prompt ' + st.team;
+      prompt.innerHTML = '<span class="who">' + teamSpan(st.team) + '</span>' +
+        '<span class="what ' + st.type + '">' + (st.type === 'ban' ? 'bane um mapa' : 'escolhe um mapa') + '</span>';
+    }
+
+    // mapas
+    var grid = $('grid');
+    grid.innerHTML = '';
+    MAPS.forEach(function(m){
+      var act = null;
+      state.actions.forEach(function(a){ if(a.map === m.id) act = a; });
+      var card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'map' + (act ? (act.type === 'ban' ? ' banned' : ' picked') : '') +
+        (st.kind === 'side' && act === st.action ? ' awaiting' : '');
+      card.disabled = !!act || st.kind !== 'choose';
+      card.appendChild(mapImg(m.id));
+      card.insertAdjacentHTML('beforeend', '<div class="shade"></div>' +
+        (act ? '<div class="tag">' + (act.type === 'ban' ? 'Banido' : 'Escolhido') + '<span>' + esc(teamName(act.team)) + '</span></div>' : '') +
+        (act && act.side ? '<div class="side">' + esc(teamName(act.side.team)) + ' começa ' + sideSpan(act.side.side) + '</div>' : '') +
+        '<div class="name">' + esc(m.name) + '</div>');
+      card.addEventListener('click', function(){
+        var s2 = status();
+        if(s2.kind !== 'choose') return;
+        state.actions.push({ team: s2.team, type: s2.type, map: m.id });
+        save(); render();
+      });
+      grid.appendChild(card);
+    });
+
+    $('undoBtn').disabled = state.actions.length === 0;
+  }
+
+  function renderResult(){
+    $('resFormat').textContent = 'MD' + state.bo;
+    $('resA').textContent = teamName('A');
+    $('resB').textContent = teamName('B');
+
+    // mapas da série: picks na ordem + decisivo
+    var picks = state.actions.filter(function(a){ return a.type === 'pick'; });
+    var dec = deciderId();
+    var html = '';
+    picks.forEach(function(p, i){
+      html += seriesCard(i + 1, p.map, false,
+        'Escolha de ' + teamSpan(p.team) + '<br>' +
+        (p.side ? teamSpan(p.side.team) + ' começa de ' + sideSpan(p.side.side) + ', ' + teamSpan(p.team) + ' de ' + sideSpan(p.side.side === 'CT' ? 'TR' : 'CT') : ''));
+    });
+    if(dec) html += seriesCard(picks.length + 1, dec, true, 'Mapa decisivo' + (state.bo > 1 ? ' (sobrou)' : ' (sobrou dos bans)') + '<br>Lado inicial a definir');
+    $('resSeries').innerHTML = html;
+
+    // banidos, na ordem
+    $('resBans').innerHTML = state.actions.filter(function(a){ return a.type === 'ban'; }).map(function(a){
+      return '<div><b>' + esc(mapById(a.map).name) + '</b> por ' + teamSpan(a.team) + '</div>';
+    }).join('');
+
+    // ordem completa
+    var order = state.actions.map(function(a){
+      var k = a.type === 'ban' ? '<span class="k ban">BAN</span>' : '<span class="k pick">PICK</span>';
+      var side = a.side ? ' · ' + teamSpan(a.side.team) + ' começa ' + sideSpan(a.side.side) : '';
+      return '<li>' + k + '<b>' + esc(mapById(a.map).name) + '</b> — ' + teamSpan(a.team) + side + '</li>';
+    });
+    if(dec) order.push('<li><span class="k dec">DECISIVO</span><b>' + esc(mapById(dec).name) + '</b> — sobrou</li>');
+    $('resOrder').innerHTML = order.join('');
+  }
+
+  // =====================================================================
+  // SÉRIE NA HUD (placar final, vencedor e mapa ao vivo)
+  // =====================================================================
+  // mapas da série na ordem: picks + decisivo
+  function seriesMaps(){
+    var list = state.actions.filter(function(a){ return a.type === 'pick'; })
+      .map(function(a){ return { id: a.map, pickedBy: a.team }; });
+    var dec = deciderId();
+    if(dec) list.push({ id: dec, pickedBy: '' });
+    return list;
+  }
+  function resultOf(id){
+    if(!state.results[id]) state.results[id] = { a: '', b: '', winner: '' };
+    return state.results[id];
+  }
+  function toScore(v){ var n = parseInt(v, 10); return isNaN(n) || n < 0 ? null : n; }
+
+  function renderManage(){
+    var maps = seriesMaps();
+    if(state.current >= maps.length) state.current = -1;
+    var box = $('resManage');
+    box.innerHTML = '';
+    maps.forEach(function(m, i){
+      var r = resultOf(m.id);
+      var row = document.createElement('div');
+      row.className = 'mRow' + (state.current === i ? ' live' : '');
+      row.innerHTML =
+        '<div class="mn2"><small>MAPA ' + (i + 1) + (m.pickedBy ? ' · pick ' + esc(teamName(m.pickedBy)) : ' · decisivo') + '</small>' + esc(mapById(m.id).name) + '</div>' +
+        '<button type="button" class="tbtn a' + (r.winner === 'A' ? ' win' : '') + '" title="Marcar como vencedor">' + esc(teamName('A')) + '</button>' +
+        '<input type="number" min="0" max="99" class="sa" value="' + esc(r.a) + '" placeholder="-">' +
+        '<span class="colon">:</span>' +
+        '<input type="number" min="0" max="99" class="sb" value="' + esc(r.b) + '" placeholder="-">' +
+        '<button type="button" class="tbtn b' + (r.winner === 'B' ? ' win' : '') + '" title="Marcar como vencedor">' + esc(teamName('B')) + '</button>' +
+        '<button type="button" class="liveBtn' + (state.current === i ? ' on' : '') + '">● Ao vivo</button>';
+
+      function setWinner(w){
+        r.winner = w;
+        // mapa ao vivo terminou: o "ao vivo" passa pro próximo sem vencedor
+        if(w && state.current === i){
+          state.current = -1;
+          for(var j = i + 1; j < maps.length; j++){ if(!resultOf(maps[j].id).winner){ state.current = j; break; } }
+        }
+      }
+      function onScore(){
+        r.a = row.querySelector('.sa').value;
+        r.b = row.querySelector('.sb').value;
+        var a = toScore(r.a), b = toScore(r.b);
+        if(a !== null && b !== null && a !== b){
+          var w = a > b ? 'A' : 'B';
+          if(r.winner !== w){ setWinner(w); save(); renderManage(); syncSeries(); return; }
+        }
+        save(); syncSeries();
+      }
+      row.querySelector('.sa').addEventListener('change', onScore);
+      row.querySelector('.sb').addEventListener('change', onScore);
+      row.querySelector('.tbtn.a').addEventListener('click', function(){ setWinner(r.winner === 'A' ? '' : 'A'); save(); renderManage(); syncSeries(); });
+      row.querySelector('.tbtn.b').addEventListener('click', function(){ setWinner(r.winner === 'B' ? '' : 'B'); save(); renderManage(); syncSeries(); });
+      row.querySelector('.liveBtn').addEventListener('click', function(){
+        state.current = state.current === i ? -1 : i;
+        save(); renderManage(); syncSeries();
+      });
+      box.appendChild(row);
+    });
+  }
+
+  // envio pra HUD (com um pequeno atraso, pra juntar alterações seguidas)
+  // true no início: se a página abrir com o veto incompleto, tira da HUD uma série antiga
+  var syncTimer = null, seriesOnHud = true;
+  function hudStatus(ok, text){
+    var el = $('hudStatus');
+    el.className = 'hudStatus ' + (ok ? 'ok' : 'err');
+    el.textContent = text;
+  }
+  function syncSeries(){
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function(){
+      var body = {
+        bestOf: state.bo, teamA: teamName('A'), teamB: teamName('B'), current: state.current,
+        maps: seriesMaps().map(function(m){
+          var r = resultOf(m.id);
+          return { id: m.id, name: mapById(m.id).name, pickedBy: m.pickedBy,
+                   scoreA: toScore(r.a), scoreB: toScore(r.b), winner: r.winner };
+        })
+      };
+      fetch(API_BASE + '/api/series', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function(res){ if(!res.ok) throw new Error(); seriesOnHud = true; hudStatus(true, '✓ enviado pra HUD'); })
+        .catch(function(){ hudStatus(false, '✗ exportador offline (localhost:5000)'); });
+    }, 250);
+  }
+  function clearSeries(){
+    clearTimeout(syncTimer);
+    if(!seriesOnHud) return;
+    seriesOnHud = false;
+    fetch(API_BASE + '/api/series', { method: 'DELETE' }).catch(function(){});
+  }
+
+  function seriesCard(n, id, isDecider, info){
+    return '<div class="sMap' + (isDecider ? ' decider' : '') + '"><div class="img" data-map="' + id + '"><span class="num">MAPA ' + n + '</span></div>' +
+      '<div class="body"><div class="mn">' + esc(mapById(id).name) + '</div><div class="info">' + info + '</div></div></div>';
+  }
+
+  // imagens dos cards do resultado (inseridas depois, com fallback)
+  var resObserver = new MutationObserver(function(){
+    [].forEach.call(document.querySelectorAll('#resSeries .img[data-map]'), function(el){
+      if(el.querySelector('img')) return;
+      el.insertBefore(mapImg(el.dataset.map), el.firstChild);
+    });
+  });
+  resObserver.observe($('resSeries'), { childList: true });
+
+  // =====================================================================
+  // EVENTOS
+  // =====================================================================
+  $('swapAB').addEventListener('click', function(){ state.swapAB = !state.swapAB; applyCtlNames(); renderSetup(); });
+  // atualiza enquanto está na tela inicial (se mudar algo no control.html)
+  setInterval(function(){ if(!state.started) loadCtlNames(); }, 3000);
+  $('nameA').addEventListener('input', function(){ state.nameA = this.value.trim(); save(); });
+  $('nameB').addEventListener('input', function(){ state.nameB = this.value.trim(); save(); });
+  [].forEach.call($('formats').children, function(b){
+    b.addEventListener('click', function(){ state.bo = Number(b.dataset.bo); save(); renderSetup(); });
+  });
+  $('startBtn').addEventListener('click', function(){
+    if(!FLOWS[state.bo]) return;
+    state.started = true; state.actions = []; state.results = {}; state.current = -1;
+    save(); render();
+  });
+
+  function undo(){
+    var last = state.actions[state.actions.length - 1];
+    if(!last) return;
+    if(last.side) delete last.side;   // primeiro desfaz a escolha de lado
+    else state.actions.pop();
+    save(); render();
+  }
+  $('undoBtn').addEventListener('click', undo);
+  $('resUndo').addEventListener('click', undo);
+
+  function restart(){
+    if(!confirm('Recomeçar o veto do zero? (os nomes e o formato continuam)')) return;
+    state.started = false; state.actions = []; state.results = {}; state.current = -1;
+    seriesOnHud = true; // garante que a HUD seja limpa
+    save(); render();
+  }
+  $('restartBtn').addEventListener('click', restart);
+  $('resNew').addEventListener('click', restart);
+
+  load();
+  render();
+  loadCtlNames();
+})();
+</script>
+</body>
+</html>

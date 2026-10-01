@@ -35,6 +35,50 @@ public class HudStateDto
     // espectador - vem certinho mesmo jogando. É a base pro timer
     // estimado no front-end.
     public string RoundPhase { get; set; } = string.Empty;
+
+    // Granadas/utilitários existindo no mapa agora (em voo, fumaças ativas,
+    // fogo queimando). Só vem espectando e com "allgrenades" "1" no .cfg.
+    public List<GrenadeDto> Grenades { get; set; } = new();
+
+    // Como cada round da partida terminou (nó map.round_wins do GSI), em
+    // ordem. Result: ct_win_elimination, t_win_elimination, ct_win_defuse,
+    // t_win_bomb, ct_win_time...
+    public List<RoundWinDto> RoundWins { get; set; } = new();
+
+    // Nome/logo dos times pelo lado atual (configurados no control.html).
+    // null no lado = padrão (COUNTER / TERRORIST).
+    public TeamsDto? Teams { get; set; }
+
+    // Série de mapas definida no veto (CS2MapVeto): mapas, vencedores,
+    // placares e qual está sendo jogado agora. null = sem série.
+    public SeriesDto? Series { get; set; }
+
+    // Webcams dos jogadores (VDO.Ninja), configuradas no control.html.
+    public CamsDto? Cams { get; set; }
+}
+
+/// <summary>
+/// Resultado de um round.
+/// </summary>
+public class RoundWinDto
+{
+    public int Round { get; set; }
+    public string Result { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Uma granada do nó "grenades" do GSI.
+/// </summary>
+public class GrenadeDto
+{
+    public string Id { get; set; } = string.Empty;    // id da entidade (estável enquanto ela existir)
+    public string Owner { get; set; } = string.Empty; // steamId de quem jogou
+    public string Type { get; set; } = string.Empty;  // smoke, decoy, firebomb, inferno, flashbang, frag
+    public PositionDto? Position { get; set; }
+    public PositionDto? Velocity { get; set; }
+    public double Lifetime { get; set; }   // segundos desde que foi lançada
+    public double EffectTime { get; set; } // segundos desde que o efeito começou (fumaça estourou); 0 = ainda não
+    public List<PositionDto> Flames { get; set; } = new(); // só "inferno": posição de cada foco de fogo
 }
 
 /// <summary>
@@ -98,11 +142,15 @@ public class PlayerHudDto
     public int Deaths { get; set; }
     public int Assists { get; set; }
     public int RoundKills { get; set; }
+    public int RoundKillHs { get; set; } // kills com headshot neste round (kill feed)
+    public int Flashed { get; set; }     // 0-255: quão cego está agora (kill feed: "matou cego")
 
     public int Money { get; set; }
     public int EquipmentValue { get; set; }
 
     public List<string> Utility { get; set; } = new(); // granadas / itens utilitários na mão
+    public string Primary { get; set; } = string.Empty;   // arma principal no inventário (rifle, SMG, sniper...), mesmo sem estar na mão
+    public string Secondary { get; set; } = string.Empty; // pistola no inventário
 
     public PositionDto? Position { get; set; }
 }

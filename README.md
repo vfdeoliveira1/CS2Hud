@@ -22,15 +22,20 @@ CS2Hud/
 ├── README.md
 ├── CS2Hud/
 │   ├── hud.html
+│   ├── control.html
 │   ├── icons/
 │   └── README.md
-└── CS2HudExporter/
-    ├── Program.cs
-    ├── HudModels.cs
-    ├── CS2HudExporter.csproj
-    ├── readme.md
-    ├── run.bat
-    └── bin/
+├── CS2HudExporter/
+│   ├── Program.cs
+│   ├── GsiConfig.cs
+│   ├── HudModels.cs
+│   ├── TeamsStore.cs
+│   ├── CS2HudExporter.csproj
+│   ├── readme.md
+│   └── run.bat
+└── CS2MapVeto/
+    ├── index.html
+    └── maps/          (imagens dos mapas)
 ```
 
 ## Requisitos
@@ -82,6 +87,8 @@ Conteúdo recomendado:
         "allplayers_match_stats"    "1"
         "allplayers_weapons"        "1"
         "allplayers_position"       "1"
+        "allgrenades"               "1"
+        "bomb"                      "1"
     }
 }
 ```
@@ -103,6 +110,56 @@ A HUD acessa automaticamente a API:
 ```text
 http://localhost:5000/api/hud
 ```
+
+### 3) Nomes e logos dos times (opcional)
+
+Abra no navegador:
+
+```text
+CS2Hud/control.html
+```
+
+Preencha o nome e a logo do time que está de **CT agora** e do que está de **TR agora** e clique em **Salvar**. A HUD passa a mostrar o nome no placar e a logo no lugar do ícone CT/TR, e o popup de vencedor do round usa esse nome e essa logo.
+
+- Na troca de lado (intervalo e overtime) o nome e a logo acompanham o time sozinhos, pelos jogadores de cada um. Se aparecerem trocados, use **Inverter lados**.
+- **Coach**: nome do coach de cada time, mostrado na tela de pausa.
+- **Forçar tela de pausa**: mostra a tela de pausa agora. Na pausa técnica e no timeout do jogo ela aparece sozinha (espectando), com valor de equipamento, loss bonus, timeouts restantes, armas/granadas/dinheiro de cada jogador e a contagem do timeout.
+- **Padrão** volta para COUNTER / TERRORIST com os ícones CT e TR, sem série.
+- A configuração fica salva em `CS2HudExporter/teams.json` (não vai para o git).
+
+### Câmeras dos jogadores (VDO.Ninja)
+
+A HUD pode mostrar a webcam do jogador em destaque, acima da barra "espectando".
+
+1. Cada jogador abre no navegador o link dele (botão **Copiar link do jogador** no `control.html`), algo como `https://vdo.ninja/?push=ID&webcam&password=SENHA`, escolhe a câmera e clica em começar. A aba precisa ficar aberta durante o jogo.
+2. No `control.html`, em **Câmeras dos jogadores**: marque **Mostrar a câmera do jogador em destaque**, defina uma senha (opcional, a mesma dos links) e o **ID da câmera** de cada jogador (ou **Usar steamId**), e clique em **Salvar câmeras**.
+3. Para desligar tudo, desmarque a opção e salve: nenhuma câmera é carregada.
+
+As câmeras de todos ficam carregadas (escondidas) pra troca ser instantânea: cada uma consome até ~1,5 Mbps de download na máquina da transmissão.
+
+### Imagens do radar
+
+Coloque o radar oficial de cada mapa em `CS2Hud/icons/maps/` como `de_<mapa>.png` (quadrado, sem corte; ex.: `de_mirage.png`). Mapas calibrados: dust2, mirage, inferno, nuke, overpass, vertigo, ancient, anubis, train e cache.
+
+Nuke e Vertigo têm dois andares: coloque também `de_nuke_lower.png` / `de_vertigo_lower.png` e o radar troca de andar sozinho conforme o jogador espectado, deixando apagado quem está no outro andar. Sem a imagem `_lower`, fica só a imagem principal.
+
+### 4) Veto de mapas (picks e bans)
+
+Abra no navegador:
+
+```text
+CS2MapVeto/index.html
+```
+
+1. Digite os nomes dos times (o Time A começa) e escolha MD1, MD3 ou MD5.
+2. Os times banem/escolhem clicando nos mapas, na ordem:
+   - **MD1**: A bane, B bane... até sobrar um mapa.
+   - **MD3**: A bane, B bane, A escolhe (B escolhe o lado), B escolhe (A escolhe o lado), A bane, B bane; o que sobra é o decisivo.
+   - **MD5**: A bane, B bane, depois A e B escolhem alternado (o outro time escolhe o lado) até sobrar o decisivo.
+3. No fim aparecem os mapas da série na ordem, os banidos e a ordem completa.
+4. Em **Série na HUD**, digite o placar final de cada mapa (o vencedor é marcado sozinho) e marque o mapa em jogo com **AO VIVO**. Isso vai para a HUD (o exportador precisa estar rodando): no tempo de compra aparece a série no canto superior direito (mapa, pick, vencedor, placar), e os quadrados de mapas vencidos ao lado do placar saem daqui. Use nos times os mesmos nomes do `control.html`, para a HUD ligar logo e quadrados.
+
+Imagens dos mapas: coloque em `CS2MapVeto/maps/` com os nomes `mirage`, `dust2`, `cache`, `inferno`, `anubis`, `ancient`, `nuke` (`.jpg`, `.png` ou `.webp`). O veto em andamento fica salvo no navegador (sobrevive ao F5); **Desfazer** volta um passo.
 
 ## Endpoints
 
@@ -129,6 +186,18 @@ Exemplo de resposta:
 
 Se ainda não houver dados do jogo, a API pode responder `204 No Content`.
 
+### Times (usados pelo `control.html`)
+
+- `GET /api/teams`: times configurados, pelo lado atual.
+- `POST /api/teams`: salva `{ "bestOf", "forcePause", "ct": { "name", "logo", "mapWins", "coach" }, "t": { ... } }` (logo em data URL; `bestOf` 0/1/3/5/7).
+- `POST /api/teams/swap`: inverte os lados manualmente.
+- `DELETE /api/teams`: volta ao padrão.
+- `GET /api/teams/logo/{id}`: imagem da logo.
+
+### Série (usada pelo `CS2MapVeto`)
+
+- `GET /api/series` / `POST /api/series` / `DELETE /api/series`: série de mapas (formato, times, mapas com pick, placar e vencedor, mapa atual). Fica salva em `CS2HudExporter/series.json`.
+
 ## Funcionalidades
 
 - placar da partida
@@ -137,6 +206,8 @@ Se ainda não houver dados do jogo, a API pode responder `204 No Content`.
 - dados de jogadores
 - arsenal e utilitários
 - radar de posições (quando disponível em observação/espectador)
+- trajetória de utilitários, fumaças e fogo no radar
+- nomes e logos dos times (painel `control.html`) e popup de vencedor do round
 - HUD pronta para uso em navegador ou OBS
 
 ## Observações importantes

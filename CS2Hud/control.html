@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS2 HUD — Times</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#131a22; --panel2:#1a232d;
+    --ct:#6E9EDA; --tr:#D9A441; --bone:#EDEFF2; --steel:#78848F;
+    --line:rgba(237,239,242,.13); --good:#6FCF97; --bad:#E0645A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--bone);font-family:'Barlow Condensed',sans-serif;
+    min-height:100vh;padding:32px 16px}
+  .wrap{max-width:880px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+  h1{font-family:'Anton',sans-serif;font-weight:400;font-size:32px;letter-spacing:.04em}
+  .status{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;color:var(--steel);
+    display:flex;align-items:center;gap:8px}
+  .status i{width:9px;height:9px;border-radius:50%;background:var(--bad)}
+  .status.on i{background:var(--good)}
+
+  /* prévia do cabeçalho da HUD */
+  .preview{background:rgba(9,13,18,.9);border:1px solid var(--line);height:72px;margin-bottom:24px;
+    display:grid;grid-template-columns:1fr 120px 1fr;align-items:center;padding:0 18px}
+  .pSide{display:flex;align-items:center;gap:10px;min-width:0}
+  .pSide.right{flex-direction:row-reverse}
+  .pTag{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.14em;
+    padding:4px 8px 3px;border:1px solid currentColor;line-height:1;flex:none}
+  .pTag.ct{color:var(--ct)} .pTag.tr{color:var(--tr)}
+  .pTag.logo{border:none;padding:0;width:40px;height:40px}
+  .pTag.logo img{width:100%;height:100%;object-fit:contain}
+  .pName{font-size:22px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pScore{font-family:'Anton',sans-serif;font-size:34px;text-align:center;color:var(--steel)}
+
+  .teams{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:640px){ .teams{grid-template-columns:1fr} }
+  .team{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--steel);padding:18px}
+  .team.ct{border-top-color:var(--ct)} .team.tr{border-top-color:var(--tr)}
+  .team h2{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.2em;
+    text-transform:uppercase;margin-bottom:14px}
+  .team.ct h2{color:var(--ct)} .team.tr h2{color:var(--tr)}
+  label{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--steel);margin:0 0 6px}
+  input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--bone);
+    font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;
+    padding:8px 12px;margin-bottom:16px;outline:none}
+  input[type=text]:focus{border-color:var(--bone)}
+  input[type=text]::placeholder{color:var(--steel);opacity:.7}
+  .logoRow{display:flex;align-items:center;gap:14px}
+  .logoBox{width:84px;height:84px;background:var(--panel2);border:1px dashed var(--line);flex:none;
+    display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;
+    font-size:14px;font-weight:700;letter-spacing:.14em}
+  .team.ct .logoBox{color:var(--ct)} .team.tr .logoBox{color:var(--tr)}
+  .logoBox img{max-width:100%;max-height:100%;object-fit:contain}
+  .logoBtns{display:flex;flex-direction:column;gap:8px}
+
+  button,.fileBtn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.1em;
+    text-transform:uppercase;padding:10px 16px;border:1px solid var(--line);background:var(--panel2);
+    color:var(--bone);cursor:pointer;text-align:center}
+  button:hover,.fileBtn:hover{border-color:var(--bone)}
+  .fileBtn input{display:none}
+  button.primary{background:var(--bone);color:var(--bg);border-color:var(--bone)}
+  button.primary:hover{background:#fff}
+  button:disabled{opacity:.4;cursor:default}
+
+  label.check{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--bone)}
+  label.check input{width:16px;height:16px;accent-color:var(--bone)}
+  /* série */
+  .seriesBar{background:var(--panel);border:1px solid var(--line);padding:14px 18px;margin-bottom:16px;
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .seriesBar label{margin:0}
+  .seg{display:flex;flex-wrap:wrap}
+  .seg button{margin-left:-1px}
+  .seg button.on{background:var(--bone);color:var(--bg);border-color:var(--bone);position:relative}
+
+  .actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+  .actions .spacer{flex:1}
+  .msg{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel);margin-top:14px;min-height:16px}
+  .msg.err{color:var(--bad)} .msg.ok{color:var(--good)}
+  /* câmeras (VDO.Ninja) */
+  .cams{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--bone);padding:18px;margin-top:28px}
+  .cams h2{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:14px}
+  .camOpts{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+  .camOpts input[type=text]{margin:0;width:220px;font-size:18px;text-transform:none}
+  .camTable{width:100%;border-collapse:collapse}
+  .camTable th{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--steel);text-align:left;padding:6px 8px;font-weight:700}
+  .camTable td{padding:5px 8px;border-top:1px solid var(--line);vertical-align:middle}
+  .camTable td.nk{font-size:20px;font-weight:700;text-transform:uppercase}
+  .camTable td.nk small{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--steel);font-weight:400;text-transform:none}
+  .camTable td.nk.ct{color:var(--ct)} .camTable td.nk.tr{color:var(--tr)}
+  .camTable input[type=text]{margin:0;font-size:16px;padding:6px 10px;text-transform:none}
+  .camTable button{padding:7px 10px;font-size:10px}
+  .camEmpty{color:var(--steel);font-size:17px;padding:8px 0}
+
+  .help{margin-top:28px;color:var(--steel);font-size:17px;line-height:1.45}
+  .help b{color:var(--bone);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>TIMES DA HUD</h1>
+    <div class="status" id="status"><i></i><span id="statusText">Conectando…</span></div>
+  </header>
+
+  <!-- como vai ficar o placar da HUD -->
+  <div class="preview">
+    <div class="pSide"><span class="pTag ct" id="pvCtTag">CT</span><span class="pName" id="pvCtName">COUNTER</span></div>
+    <div class="pScore" id="pvScore">0 : 0</div>
+    <div class="pSide right"><span class="pTag tr" id="pvTrTag">TR</span><span class="pName" id="pvTrName">TERRORIST</span></div>
+  </div>
+
+  <div class="seriesBar">
+    <label class="check" title="Mostra a tela de pausa na HUD agora. Pausa técnica e timeout do jogo já aparecem sozinhos (espectando).">
+      <input type="checkbox" id="forcePause"> Forçar tela de pausa
+    </label>
+  </div>
+
+  <div class="teams">
+    <section class="team ct">
+      <h2>Time no lado CT agora</h2>
+      <label for="ctName">Nome</label>
+      <input type="text" id="ctName" maxlength="40" placeholder="COUNTER" autocomplete="off">
+      <label for="ctCoach">Coach</label>
+      <input type="text" id="ctCoach" maxlength="40" placeholder="(opcional)" autocomplete="off">
+      <label>Logo</label>
+      <div class="logoRow">
+        <div class="logoBox" id="ctLogoBox">CT</div>
+        <div class="logoBtns">
+          <label class="fileBtn">Escolher imagem<input type="file" id="ctFile" accept="image/*"></label>
+          <button type="button" id="ctClearLogo">Remover logo</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="team tr">
+      <h2>Time no lado TR agora</h2>
+      <label for="tName">Nome</label>
+      <input type="text" id="tName" maxlength="40" placeholder="TERRORIST" autocomplete="off">
+      <label for="tCoach">Coach</label>
+      <input type="text" id="tCoach" maxlength="40" placeholder="(opcional)" autocomplete="off">
+      <label>Logo</label>
+      <div class="logoRow">
+        <div class="logoBox" id="tLogoBox">TR</div>
+        <div class="logoBtns">
+          <label class="fileBtn">Escolher imagem<input type="file" id="tFile" accept="image/*"></label>
+          <button type="button" id="tClearLogo">Remover logo</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="saveBtn">Salvar</button>
+    <button id="swapBtn" title="Use se a HUD mostrar os times nos lados trocados">Inverter lados</button>
+    <span class="spacer"></span>
+    <button id="defaultBtn" title="Volta pra COUNTER / TERRORIST com os ícones CT e TR">Padrão</button>
+  </div>
+  <div class="msg" id="msg"></div>
+
+  <!-- câmeras dos jogadores (VDO.Ninja) -->
+  <section class="cams">
+    <h2>Câmeras dos jogadores (VDO.Ninja)</h2>
+    <div class="camOpts">
+      <label class="check"><input type="checkbox" id="camEnabled"> Mostrar a câmera do jogador em destaque na HUD</label>
+      <div><label for="camPassword">Senha da sala (opcional)</label><input type="text" id="camPassword" maxlength="60" placeholder="ex: minhaliga2026" autocomplete="off"></div>
+    </div>
+    <table class="camTable">
+      <thead><tr><th>Jogador</th><th>ID da câmera</th><th></th><th></th></tr></thead>
+      <tbody id="camRows"></tbody>
+    </table>
+    <div class="camEmpty" id="camEmpty">Os jogadores aparecem aqui quando a partida estiver rodando (espectando).</div>
+    <div class="actions">
+      <button class="primary" id="camSave">Salvar câmeras</button>
+    </div>
+    <div class="msg" id="camMsg"></div>
+  </section>
+
+  <p class="help">
+    Preencha o time que está <b>jogando de CT agora</b> e o que está <b>de TR agora</b> e clique em <b>Salvar</b>.
+    Na troca de lado (intervalo e overtime) o nome e a logo acompanham o time sozinhos, pelos jogadores de cada um.
+    Se algum dia aparecerem trocados, clique em <b>Inverter lados</b>. Um lado sem nome e sem logo usa o padrão da HUD.
+    O <b>coach</b> aparece na tela de pausa, que surge sozinha na pausa técnica e no timeout (espectando) ou quando você marca <b>Forçar tela de pausa</b>.
+    A <b>série</b> (MD1/MD3/MD5, mapas, placares e vencedores) agora é definida no <b>CS2MapVeto/index.html</b> - use lá os mesmos nomes de time daqui.
+    O CS2HudExporter precisa estar rodando.
+  </p>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var API_BASE = 'http://localhost:5000';
+  var LOGO_MAX_PX = 256; // logo é redimensionada antes de enviar (fica leve pra HUD)
+  var $ = function(id){ return document.getElementById(id); };
+
+  // estado do formulário: side 'ct' | 't'
+  var form = { forcePause: false, ct: { name: '', logo: '', coach: '' }, t: { name: '', logo: '', coach: '' } };
+  var dirty = false; // editou e ainda não salvou: não sobrescreve com o servidor
+
+  function setMsg(text, kind){
+    var el = $('msg');
+    el.textContent = text || '';
+    el.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  function setStatus(online, text){
+    $('status').className = 'status' + (online ? ' on' : '');
+    $('statusText').textContent = text;
+  }
+
+  function renderForm(){
+    ['ct', 't'].forEach(function(side){
+      var tagText = side === 'ct' ? 'CT' : 'TR';
+      if(document.activeElement !== $(side + 'Name')) $(side + 'Name').value = form[side].name;
+      if(document.activeElement !== $(side + 'Coach')) $(side + 'Coach').value = form[side].coach;
+      var box = $(side + 'LogoBox');
+      box.innerHTML = '';
+      if(form[side].logo){
+        var img = document.createElement('img'); img.src = form[side].logo; box.appendChild(img);
+      } else {
+        box.textContent = tagText;
+      }
+      $(side + 'ClearLogo').disabled = !form[side].logo;
+
+    });
+    $('forcePause').checked = form.forcePause;
+    renderPreview();
+  }
+
+  function renderPreview(){
+    [['ct', 'pvCtTag', 'pvCtName', 'CT', 'COUNTER'], ['t', 'pvTrTag', 'pvTrName', 'TR', 'TERRORIST']].forEach(function(r){
+      var side = r[0], tag = $(r[1]), cls = side === 'ct' ? 'ct' : 'tr';
+      $(r[2]).textContent = form[side].name.trim() || r[4];
+      tag.innerHTML = '';
+      if(form[side].logo){
+        tag.className = 'pTag logo ' + cls;
+        var img = document.createElement('img'); img.src = form[side].logo; tag.appendChild(img);
+      } else {
+        tag.className = 'pTag ' + cls;
+        tag.textContent = r[3];
+      }
+    });
+  }
+
+  function fromServer(data){
+    form.forcePause = !!data.forcePause;
+    ['ct', 't'].forEach(function(side){
+      var d = data[side] || {};
+      form[side] = { name: d.name || '', logo: d.logo || '', coach: d.coach || '' };
+    });
+    dirty = false;
+    renderForm();
+  }
+
+  function request(method, path, body){
+    return fetch(API_BASE + path, {
+      method: method,
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function(res){
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    });
+  }
+
+  // lê o que está salvo (e o lado atual de cada time) de tempos em tempos,
+  // pra refletir a troca de lado do intervalo sem precisar recarregar
+  function refresh(){
+    request('GET', '/api/teams').then(function(data){
+      setStatus(true, 'Exportador conectado');
+      if(!dirty) fromServer(data);
+    }).catch(function(){
+      setStatus(false, 'Exportador offline (localhost:5000)');
+    });
+    fetch(API_BASE + '/api/hud', { cache: 'no-store' }).then(function(res){
+      return res.status === 200 ? res.json() : null;
+    }).then(function(s){
+      if(s && s.scoreboard) $('pvScore').textContent = s.scoreboard.ct.score + ' : ' + s.scoreboard.t.score;
+    }).catch(function(){});
+  }
+
+  // imagem -> PNG de no máximo LOGO_MAX_PX, como data URL
+  function loadLogo(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onerror = function(){ reject(new Error('não consegui ler o arquivo')); };
+      reader.onload = function(){
+        var img = new Image();
+        img.onerror = function(){ reject(new Error('arquivo não é uma imagem válida')); };
+        img.onload = function(){
+          var w = img.naturalWidth || LOGO_MAX_PX, h = img.naturalHeight || LOGO_MAX_PX;
+          var k = Math.min(1, LOGO_MAX_PX / Math.max(w, h));
+          var canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(w * k));
+          canvas.height = Math.max(1, Math.round(h * k));
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  ['ct', 't'].forEach(function(side){
+    $(side + 'Name').addEventListener('input', function(){
+      form[side].name = this.value;
+      dirty = true;
+      renderPreview();
+    });
+    $(side + 'Coach').addEventListener('input', function(){
+      form[side].coach = this.value;
+      dirty = true;
+    });
+    $(side + 'File').addEventListener('change', function(){
+      var file = this.files && this.files[0];
+      this.value = '';
+      if(!file) return;
+      loadLogo(file).then(function(dataUrl){
+        form[side].logo = dataUrl;
+        dirty = true;
+        renderForm();
+        setMsg('Logo carregada. Clique em Salvar pra aplicar na HUD.');
+      }).catch(function(err){ setMsg('Erro: ' + err.message, 'err'); });
+    });
+    $(side + 'ClearLogo').addEventListener('click', function(){
+      form[side].logo = '';
+      dirty = true;
+      renderForm();
+    });
+  });
+
+  $('forcePause').addEventListener('change', function(){
+    form.forcePause = this.checked;
+    dirty = true;
+    setMsg('Clique em Salvar pra aplicar na HUD.');
+  });
+
+  $('saveBtn').addEventListener('click', function(){
+    var body = {
+      forcePause: form.forcePause,
+      ct: { name: form.ct.name.trim(), logo: form.ct.logo, coach: form.ct.coach.trim() },
+      t: { name: form.t.name.trim(), logo: form.t.logo, coach: form.t.coach.trim() }
+    };
+    request('POST', '/api/teams', body).then(function(data){
+      fromServer(data);
+      setMsg('Salvo! A HUD já está usando.', 'ok');
+    }).catch(function(){ setMsg('Não consegui salvar: o CS2HudExporter está rodando?', 'err'); });
+  });
+
+  $('swapBtn').addEventListener('click', function(){
+    request('POST', '/api/teams/swap').then(function(data){
+      fromServer(data);
+      setMsg('Lados invertidos.', 'ok');
+    }).catch(function(){ setMsg('Não consegui inverter: o CS2HudExporter está rodando?', 'err'); });
+  });
+
+  $('defaultBtn').addEventListener('click', function(){
+    request('DELETE', '/api/teams').then(function(data){
+      fromServer(data);
+      setMsg('Voltou pro padrão (COUNTER / TERRORIST).', 'ok');
+    }).catch(function(){ setMsg('Não consegui limpar: o CS2HudExporter está rodando?', 'err'); });
+  });
+
+  // =====================================================================
+  // CÂMERAS (VDO.Ninja)
+  // =====================================================================
+  // Cada jogador transmite a webcam pelo link dele (?push=ID). Aqui você liga
+  // cada steamId a um ID; a HUD mostra a câmera de quem está em destaque.
+  var cams = { enabled: false, password: '', ids: {} };
+  var camPlayers = {};   // steamId -> { nick, team } (vistos na partida)
+  var camDirty = false;
+
+  function camClean(v){ return (v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60); }
+  function camLink(id){
+    return 'https://vdo.ninja/?push=' + encodeURIComponent(id) + '&webcam' +
+      (cams.password ? '&password=' + encodeURIComponent(cams.password) : '');
+  }
+  function setCamMsg(text, kind){ var el = $('camMsg'); el.textContent = text || ''; el.className = 'msg' + (kind ? ' ' + kind : ''); }
+
+  function renderCams(){
+    if(document.activeElement !== $('camPassword')) $('camPassword').value = cams.password || '';
+    $('camEnabled').checked = !!cams.enabled;
+    // jogadores da partida + os que já têm câmera salva
+    var ids = {};
+    Object.keys(camPlayers).forEach(function(k){ ids[k] = true; });
+    Object.keys(cams.ids).forEach(function(k){ ids[k] = true; });
+    var list = Object.keys(ids).sort(function(a, b){
+      var pa = camPlayers[a] || {}, pb = camPlayers[b] || {};
+      return (pa.team || 'Z').localeCompare(pb.team || 'Z') || (pa.nick || a).localeCompare(pb.nick || b);
+    });
+    $('camEmpty').style.display = list.length ? 'none' : 'block';
+    var focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.sid : null;
+    var tbody = $('camRows');
+    tbody.innerHTML = '';
+    list.forEach(function(sid){
+      var p = camPlayers[sid];
+      var tr = document.createElement('tr');
+      var cls = p ? (p.team === 'CT' ? 'ct' : 'tr') : '';
+      tr.innerHTML = '<td class="nk ' + cls + '">' + (p ? p.nick : '(fora da partida)').replace(/</g, '&lt;') + '<small>' + sid + '</small></td>' +
+        '<td><input type="text" data-sid="' + sid + '" maxlength="60" placeholder="ID da câmera" autocomplete="off"></td>' +
+        '<td><button type="button" class="useSid" title="Usar o steamId como ID da câmera">Usar steamId</button></td>' +
+        '<td><button type="button" class="copy" title="Copia o link que esse jogador deve abrir">Copiar link do jogador</button></td>';
+      var input = tr.querySelector('input');
+      input.value = cams.ids[sid] || '';
+      input.addEventListener('input', function(){
+        var v = camClean(this.value);
+        if(v !== this.value) this.value = v;
+        if(v) cams.ids[sid] = v; else delete cams.ids[sid];
+        camDirty = true;
+      });
+      tr.querySelector('.useSid').addEventListener('click', function(){
+        cams.ids[sid] = sid; input.value = sid; camDirty = true;
+      });
+      tr.querySelector('.copy').addEventListener('click', function(){
+        var id = cams.ids[sid];
+        if(!id){ setCamMsg('Defina o ID da câmera desse jogador primeiro.', 'err'); return; }
+        var link = camLink(id);
+        // mostra o link sempre (dá pra copiar à mão); tenta copiar sozinho
+        setCamMsg('Link do jogador: ' + link);
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(link).then(function(){ setCamMsg('Link copiado: ' + link, 'ok'); }, function(){});
+        }
+      });
+      tbody.appendChild(tr);
+      if(focused === sid) input.focus();
+    });
+  }
+
+  function refreshCams(){
+    fetch(API_BASE + '/api/hud', { cache: 'no-store' }).then(function(res){ return res.status === 200 ? res.json() : null; })
+      .then(function(s){
+        if(!s || !s.players) return;
+        var changed = false;
+        s.players.forEach(function(p){
+          if(!p.steamId) return;
+          if(!camPlayers[p.steamId] || camPlayers[p.steamId].nick !== p.nick || camPlayers[p.steamId].team !== p.team) changed = true;
+          camPlayers[p.steamId] = { nick: p.nick, team: p.team };
+        });
+        if(changed && !(document.activeElement && document.activeElement.dataset && document.activeElement.dataset.sid)) renderCams();
+      }).catch(function(){});
+  }
+
+  function loadCams(){
+    request('GET', '/api/cams').then(function(c){
+      if(c && !camDirty){ cams = { enabled: !!c.enabled, password: c.password || '', ids: c.ids || {} }; renderCams(); }
+    }).catch(function(){});
+  }
+
+  $('camEnabled').addEventListener('change', function(){ cams.enabled = this.checked; camDirty = true; setCamMsg('Clique em Salvar câmeras pra aplicar.'); });
+  $('camPassword').addEventListener('input', function(){
+    var v = camClean(this.value); if(v !== this.value) this.value = v;
+    cams.password = v; camDirty = true;
+  });
+  $('camSave').addEventListener('click', function(){
+    request('POST', '/api/cams', cams).then(function(c){
+      cams = { enabled: !!c.enabled, password: c.password || '', ids: c.ids || {} };
+      camDirty = false; renderCams();
+      setCamMsg(cams.enabled ? 'Salvo! A HUD mostra a câmera do jogador em destaque.' : 'Salvo. Câmeras desligadas na HUD.', 'ok');
+    }).catch(function(){ setCamMsg('Não consegui salvar: o CS2HudExporter está rodando? (atualizado com CamsStore.cs?)', 'err'); });
+  });
+
+  renderCams();
+  loadCams();
+  refreshCams();
+  setInterval(refreshCams, 3000);
+
+  renderForm();
+  refresh();
+  setInterval(refresh, 3000);
+})();
+</script>
+</body>
+</html>
