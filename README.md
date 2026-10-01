@@ -127,6 +127,16 @@ Preencha o nome e a logo do time que está de **CT agora** e do que está de **T
 - **Padrão** volta para COUNTER / TERRORIST com os ícones CT e TR, sem série.
 - A configuração fica salva em `CS2HudExporter/teams.json` (não vai para o git).
 
+### Câmeras dos jogadores (VDO.Ninja)
+
+A HUD pode mostrar a webcam do jogador em destaque, acima da barra "espectando".
+
+1. Cada jogador abre no navegador o link dele (botão **Copiar link do jogador** no `control.html`), algo como `https://vdo.ninja/?push=ID&webcam&password=SENHA`, escolhe a câmera e clica em começar. A aba precisa ficar aberta durante o jogo.
+2. No `control.html`, em **Câmeras dos jogadores**: marque **Mostrar a câmera do jogador em destaque**, defina uma senha (opcional, a mesma dos links) e o **ID da câmera** de cada jogador (ou **Usar steamId**), e clique em **Salvar câmeras**.
+3. Para desligar tudo, desmarque a opção e salve: nenhuma câmera é carregada.
+
+As câmeras de todos ficam carregadas (escondidas) pra troca ser instantânea: cada uma consome até ~1,5 Mbps de download na máquina da transmissão.
+
 ### 4) Veto de mapas (picks e bans)
 
 Abra no navegador:

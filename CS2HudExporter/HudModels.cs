@@ -52,6 +52,9 @@ public class HudStateDto
     // Série de mapas definida no veto (CS2MapVeto): mapas, vencedores,
     // placares e qual está sendo jogado agora. null = sem série.
     public SeriesDto? Series { get; set; }
+
+    // Webcams dos jogadores (VDO.Ninja), configuradas no control.html.
+    public CamsDto? Cams { get; set; }
 }
 
 /// <summary>

@@ -54,6 +54,8 @@ builder.Logging.SetMinimumLevel(LogLevel.Warning);
 var teams = new TeamsStore(Path.Combine(builder.Environment.ContentRootPath, "teams.json"));
 // Série de mapas enviada pelo veto (CS2MapVeto/index.html).
 var series = new SeriesStore(Path.Combine(builder.Environment.ContentRootPath, "series.json"));
+// Webcams dos jogadores (VDO.Ninja), configuradas no control.html.
+var cams = new CamsStore(Path.Combine(builder.Environment.ContentRootPath, "cams.json"));
 
 var app = builder.Build();
 app.UseCors();
@@ -68,6 +70,7 @@ app.MapGet("/api/hud", () =>
             return Results.Json(new { message = "Nenhum dado recebido do CS2 ainda." }, statusCode: 204);
         latestHudState.Teams = teams.Resolve(latestHudState.Players);
         latestHudState.Series = series.Get();
+        latestHudState.Cams = cams.Get();
         return Results.Ok(latestHudState);
     }
 });
@@ -96,6 +99,15 @@ app.MapDelete("/api/teams", () =>
 {
     teams.Clear();
     return Results.Ok(teams.Resolve(CurrentPlayers(), includeLogoData: true));
+});
+
+// ---- Webcams (control.html) ----
+app.MapGet("/api/cams", () => Results.Ok(cams.Get()));
+
+app.MapPost("/api/cams", (CamsDto input) =>
+{
+    cams.Set(input);
+    return Results.Ok(cams.Get());
 });
 
 // ---- Série de mapas (CS2MapVeto) ----

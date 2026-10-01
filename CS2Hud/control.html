@@ -82,6 +82,21 @@
   .actions .spacer{flex:1}
   .msg{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel);margin-top:14px;min-height:16px}
   .msg.err{color:var(--bad)} .msg.ok{color:var(--good)}
+  /* câmeras (VDO.Ninja) */
+  .cams{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--bone);padding:18px;margin-top:28px}
+  .cams h2{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:14px}
+  .camOpts{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+  .camOpts input[type=text]{margin:0;width:220px;font-size:18px;text-transform:none}
+  .camTable{width:100%;border-collapse:collapse}
+  .camTable th{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--steel);text-align:left;padding:6px 8px;font-weight:700}
+  .camTable td{padding:5px 8px;border-top:1px solid var(--line);vertical-align:middle}
+  .camTable td.nk{font-size:20px;font-weight:700;text-transform:uppercase}
+  .camTable td.nk small{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--steel);font-weight:400;text-transform:none}
+  .camTable td.nk.ct{color:var(--ct)} .camTable td.nk.tr{color:var(--tr)}
+  .camTable input[type=text]{margin:0;font-size:16px;padding:6px 10px;text-transform:none}
+  .camTable button{padding:7px 10px;font-size:10px}
+  .camEmpty{color:var(--steel);font-size:17px;padding:8px 0}
+
   .help{margin-top:28px;color:var(--steel);font-size:17px;line-height:1.45}
   .help b{color:var(--bone);font-weight:600}
 </style>
@@ -147,6 +162,24 @@
     <button id="defaultBtn" title="Volta pra COUNTER / TERRORIST com os ícones CT e TR">Padrão</button>
   </div>
   <div class="msg" id="msg"></div>
+
+  <!-- câmeras dos jogadores (VDO.Ninja) -->
+  <section class="cams">
+    <h2>Câmeras dos jogadores (VDO.Ninja)</h2>
+    <div class="camOpts">
+      <label class="check"><input type="checkbox" id="camEnabled"> Mostrar a câmera do jogador em destaque na HUD</label>
+      <div><label for="camPassword">Senha da sala (opcional)</label><input type="text" id="camPassword" maxlength="60" placeholder="ex: minhaliga2026" autocomplete="off"></div>
+    </div>
+    <table class="camTable">
+      <thead><tr><th>Jogador</th><th>ID da câmera</th><th></th><th></th></tr></thead>
+      <tbody id="camRows"></tbody>
+    </table>
+    <div class="camEmpty" id="camEmpty">Os jogadores aparecem aqui quando a partida estiver rodando (espectando).</div>
+    <div class="actions">
+      <button class="primary" id="camSave">Salvar câmeras</button>
+    </div>
+    <div class="msg" id="camMsg"></div>
+  </section>
 
   <p class="help">
     Preencha o time que está <b>jogando de CT agora</b> e o que está <b>de TR agora</b> e clique em <b>Salvar</b>.
@@ -333,6 +366,109 @@
       setMsg('Voltou pro padrão (COUNTER / TERRORIST).', 'ok');
     }).catch(function(){ setMsg('Não consegui limpar: o CS2HudExporter está rodando?', 'err'); });
   });
+
+  // =====================================================================
+  // CÂMERAS (VDO.Ninja)
+  // =====================================================================
+  // Cada jogador transmite a webcam pelo link dele (?push=ID). Aqui você liga
+  // cada steamId a um ID; a HUD mostra a câmera de quem está em destaque.
+  var cams = { enabled: false, password: '', ids: {} };
+  var camPlayers = {};   // steamId -> { nick, team } (vistos na partida)
+  var camDirty = false;
+
+  function camClean(v){ return (v || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60); }
+  function camLink(id){
+    return 'https://vdo.ninja/?push=' + encodeURIComponent(id) + '&webcam' +
+      (cams.password ? '&password=' + encodeURIComponent(cams.password) : '');
+  }
+  function setCamMsg(text, kind){ var el = $('camMsg'); el.textContent = text || ''; el.className = 'msg' + (kind ? ' ' + kind : ''); }
+
+  function renderCams(){
+    if(document.activeElement !== $('camPassword')) $('camPassword').value = cams.password || '';
+    $('camEnabled').checked = !!cams.enabled;
+    // jogadores da partida + os que já têm câmera salva
+    var ids = {};
+    Object.keys(camPlayers).forEach(function(k){ ids[k] = true; });
+    Object.keys(cams.ids).forEach(function(k){ ids[k] = true; });
+    var list = Object.keys(ids).sort(function(a, b){
+      var pa = camPlayers[a] || {}, pb = camPlayers[b] || {};
+      return (pa.team || 'Z').localeCompare(pb.team || 'Z') || (pa.nick || a).localeCompare(pb.nick || b);
+    });
+    $('camEmpty').style.display = list.length ? 'none' : 'block';
+    var focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.sid : null;
+    var tbody = $('camRows');
+    tbody.innerHTML = '';
+    list.forEach(function(sid){
+      var p = camPlayers[sid];
+      var tr = document.createElement('tr');
+      var cls = p ? (p.team === 'CT' ? 'ct' : 'tr') : '';
+      tr.innerHTML = '<td class="nk ' + cls + '">' + (p ? p.nick : '(fora da partida)').replace(/</g, '&lt;') + '<small>' + sid + '</small></td>' +
+        '<td><input type="text" data-sid="' + sid + '" maxlength="60" placeholder="ID da câmera" autocomplete="off"></td>' +
+        '<td><button type="button" class="useSid" title="Usar o steamId como ID da câmera">Usar steamId</button></td>' +
+        '<td><button type="button" class="copy" title="Copia o link que esse jogador deve abrir">Copiar link do jogador</button></td>';
+      var input = tr.querySelector('input');
+      input.value = cams.ids[sid] || '';
+      input.addEventListener('input', function(){
+        var v = camClean(this.value);
+        if(v !== this.value) this.value = v;
+        if(v) cams.ids[sid] = v; else delete cams.ids[sid];
+        camDirty = true;
+      });
+      tr.querySelector('.useSid').addEventListener('click', function(){
+        cams.ids[sid] = sid; input.value = sid; camDirty = true;
+      });
+      tr.querySelector('.copy').addEventListener('click', function(){
+        var id = cams.ids[sid];
+        if(!id){ setCamMsg('Defina o ID da câmera desse jogador primeiro.', 'err'); return; }
+        var link = camLink(id);
+        // mostra o link sempre (dá pra copiar à mão); tenta copiar sozinho
+        setCamMsg('Link do jogador: ' + link);
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          navigator.clipboard.writeText(link).then(function(){ setCamMsg('Link copiado: ' + link, 'ok'); }, function(){});
+        }
+      });
+      tbody.appendChild(tr);
+      if(focused === sid) input.focus();
+    });
+  }
+
+  function refreshCams(){
+    fetch(API_BASE + '/api/hud', { cache: 'no-store' }).then(function(res){ return res.status === 200 ? res.json() : null; })
+      .then(function(s){
+        if(!s || !s.players) return;
+        var changed = false;
+        s.players.forEach(function(p){
+          if(!p.steamId) return;
+          if(!camPlayers[p.steamId] || camPlayers[p.steamId].nick !== p.nick || camPlayers[p.steamId].team !== p.team) changed = true;
+          camPlayers[p.steamId] = { nick: p.nick, team: p.team };
+        });
+        if(changed && !(document.activeElement && document.activeElement.dataset && document.activeElement.dataset.sid)) renderCams();
+      }).catch(function(){});
+  }
+
+  function loadCams(){
+    request('GET', '/api/cams').then(function(c){
+      if(c && !camDirty){ cams = { enabled: !!c.enabled, password: c.password || '', ids: c.ids || {} }; renderCams(); }
+    }).catch(function(){});
+  }
+
+  $('camEnabled').addEventListener('change', function(){ cams.enabled = this.checked; camDirty = true; setCamMsg('Clique em Salvar câmeras pra aplicar.'); });
+  $('camPassword').addEventListener('input', function(){
+    var v = camClean(this.value); if(v !== this.value) this.value = v;
+    cams.password = v; camDirty = true;
+  });
+  $('camSave').addEventListener('click', function(){
+    request('POST', '/api/cams', cams).then(function(c){
+      cams = { enabled: !!c.enabled, password: c.password || '', ids: c.ids || {} };
+      camDirty = false; renderCams();
+      setCamMsg(cams.enabled ? 'Salvo! A HUD mostra a câmera do jogador em destaque.' : 'Salvo. Câmeras desligadas na HUD.', 'ok');
+    }).catch(function(){ setCamMsg('Não consegui salvar: o CS2HudExporter está rodando? (atualizado com CamsStore.cs?)', 'err'); });
+  });
+
+  renderCams();
+  loadCams();
+  refreshCams();
+  setInterval(refreshCams, 3000);
 
   renderForm();
   refresh();

@@ -339,8 +339,8 @@
     transition:opacity .5s ease,transform .5s ease,visibility 0s linear .5s}
   #stage.paused .pause{opacity:1;visibility:visible;transform:none;
     transition:opacity .5s ease .15s,transform .5s ease .15s,visibility 0s}
-  .roster, .specPanel{transition:opacity .4s ease,visibility 0s}
-  #stage.paused .roster, #stage.paused .specPanel{opacity:0;visibility:hidden;
+  .roster, .specWrap{transition:opacity .4s ease,visibility 0s}
+  #stage.paused .roster, #stage.paused .specWrap{opacity:0;visibility:hidden;
     transition:opacity .4s ease,visibility 0s linear .4s}
   .pHead,.pBody{display:grid;grid-template-columns:700px 1fr 700px;gap:6px}
   .pBox{background:var(--bg);border:1px solid var(--line);backdrop-filter:blur(6px)}
@@ -447,12 +447,26 @@
   .crosshair{transition:opacity .4s ease}
   #stage.paused .crosshair{opacity:0}
 
-  .specPanel{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
-    display:none;align-items:center;gap:16px;background:var(--bg-soft);backdrop-filter:blur(5px);
+  /* ---------------- webcam do jogador em destaque (VDO.Ninja) ---------------- */
+  /* fica logo acima da barra "espectando". As câmeras de todos os jogadores
+     ficam carregadas (escondidas) pra troca ser instantânea. */
+  /* bloco do jogador em destaque: câmera colada em cima da barra
+     "espectando", com a mesma largura (os dois dentro do .specWrap) */
+  .specWrap{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column}
+  .camBox{position:relative;display:none;aspect-ratio:16/9;background:#000;overflow:hidden;
+    border:1px solid var(--line);border-bottom:none;border-left:4px solid var(--team, var(--steel))}
+  .camBox.ct{--team:var(--ct)} .camBox.tr{--team:var(--tr)}
+  .camBox.show{display:block;animation:camIn .35s ease}
+  @keyframes camIn{from{opacity:0}to{opacity:1}}
+  .camBox iframe{position:absolute;inset:0;width:100%;height:100%;border:0;visibility:hidden}
+  .camBox iframe.on{visibility:visible}
+
+  .specPanel{display:none;align-items:center;gap:16px;background:var(--bg-soft);backdrop-filter:blur(5px);
     border:1px solid var(--line);border-left:4px solid var(--steel);padding:12px 22px;min-width:380px}
   .specPanel.ct{border-left-color:var(--ct)} .specPanel.tr{border-left-color:var(--tr)}
-  .specPanel .specLabel{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;
-    color:var(--steel);text-transform:uppercase;position:absolute;top:-18px;left:0}
+  /* "ESPECTANDO": primeiro item do bloco (acima da câmera, ou da barra sem câmera) */
+  .specLabel{display:none;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;
+    color:var(--steel);text-transform:uppercase;margin-bottom:5px}
   .specPanel img.weaponIc{width:52px;height:30px;object-fit:contain}
   .specPanel .specWeaponCol{display:flex;flex-direction:column;align-items:center;gap:4px}
   .specPanel .specAmmo{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--steel);white-space:nowrap}
@@ -543,8 +557,10 @@
 
   <div class="crosshair" id="crosshair"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>
 
+  <div class="specWrap" id="specWrap">
+  <span class="specLabel" id="specLabel">Espectando</span>
+  <div class="camBox" id="camBox"></div>
   <div class="specPanel" id="specPanel">
-    <span class="specLabel">Espectando</span>
     <div class="specWeaponCol">
       <img class="weaponIc ic" id="specWeapon" src="" alt="">
       <span class="specAmmo" id="specAmmo"></span>
@@ -559,6 +575,7 @@
       </div>
     </div>
     <span class="specHp" id="specHp">100</span>
+  </div>
   </div>
 
 </div>
@@ -1624,14 +1641,66 @@
     });
   }
 
+  // =====================================================================
+  // WEBCAM DO JOGADOR EM DESTAQUE (VDO.Ninja)
+  // =====================================================================
+  // Configurada no control.html: liga/desliga, senha da sala e o ID de
+  // câmera de cada jogador (steamId -> ID). Cada câmera vira um iframe do
+  // VDO.Ninja, todos carregados e escondidos; só o do jogador espectado
+  // aparece. Desligado = nenhum iframe (nada de banda gasta).
+  var CAM_BITRATE_KBPS = 1500;
+  var camFrames = {};   // ID da câmera -> iframe
+  var camConfigKey = null;
+
+  function camUrl(id, password){
+    return 'https://vdo.ninja/?view=' + encodeURIComponent(id) +
+      '&cleanoutput&noaudio&cover&bitrate=' + CAM_BITRATE_KBPS +
+      (password ? '&password=' + encodeURIComponent(password) : '');
+  }
+
+  function renderCam(state){
+    var cams = state.cams;
+    var box = $('camBox');
+    var enabled = !!(cams && cams.enabled);
+    var ids = enabled ? (cams.ids || {}) : {};
+
+    // (re)cria os iframes só quando a configuração muda
+    var key = enabled ? JSON.stringify([cams.password || '', ids]) : 'off';
+    if(key !== camConfigKey){
+      camConfigKey = key;
+      var wanted = {};
+      Object.keys(ids).forEach(function(steamId){ wanted[ids[steamId]] = true; });
+      Object.keys(camFrames).forEach(function(id){
+        if(!wanted[id] || !enabled){ camFrames[id].remove(); delete camFrames[id]; }
+      });
+      Object.keys(wanted).forEach(function(id){
+        if(camFrames[id]) return;
+        var f = document.createElement('iframe');
+        f.allow = 'autoplay';
+        f.src = camUrl(id, cams.password);
+        box.appendChild(f);
+        camFrames[id] = f;
+      });
+    }
+
+    var p = state.spectatedPlayer;
+    var camId = enabled && p ? ids[p.steamId] : null;
+    Object.keys(camFrames).forEach(function(id){ camFrames[id].classList.toggle('on', id === camId); });
+    var show = !!(camId && camFrames[camId]);
+    var cls = 'camBox' + (show ? ' show ' + (p.team === 'CT' ? 'ct' : 'tr') : '');
+    if(box.className !== cls) box.className = cls; // não reinicia o fade à toa
+  }
+
   function renderSpectator(player){
     renderCrosshair(player);
     var panel = $('specPanel');
     if(!player){
       panel.style.display = 'none';
+      $('specLabel').style.display = 'none';
       return;
     }
     panel.style.display = 'flex';
+    $('specLabel').style.display = 'block';
     panel.className = 'specPanel ' + (player.team === 'CT' ? 'ct' : 'tr');
 
     $('specNick').textContent = player.nick || '?';
@@ -2282,6 +2351,7 @@
     if(state.map) saveDeaths(state);
     updateUtility(state.grenades || [], state.map);
     renderSpectator(state.spectatedPlayer || null);
+    renderCam(state);
     renderAlive(state, ctPlayers, tPlayers);
     renderBuyInfo(state, ctPlayers, tPlayers);
     renderPause(state, ctPlayers, tPlayers);
@@ -2298,6 +2368,7 @@
   function resetVisuals(){
     $('stage').classList.remove('paused');
     $('stage').classList.remove('showSeries');
+    $('camBox').classList.remove('show');
     $('buyInfoCT').classList.remove('show'); $('buyInfoT').classList.remove('show');
     // placar / cabeçalho
     $('scoreCT').textContent = '0'; $('scoreT').textContent = '0';

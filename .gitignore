@@ -10,3 +10,6 @@ teams.json
 
 # Série de mapas enviada pelo CS2MapVeto (dados locais)
 series.json
+
+# Câmeras configuradas no control.html (dados locais)
+cams.json
