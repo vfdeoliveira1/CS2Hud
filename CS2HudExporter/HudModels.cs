@@ -48,6 +48,10 @@ public class HudStateDto
     // Nome/logo dos times pelo lado atual (configurados no control.html).
     // null no lado = padrão (COUNTER / TERRORIST).
     public TeamsDto? Teams { get; set; }
+
+    // Série de mapas definida no veto (CS2MapVeto): mapas, vencedores,
+    // placares e qual está sendo jogado agora. null = sem série.
+    public SeriesDto? Series { get; set; }
 }
 
 /// <summary>
@@ -135,6 +139,8 @@ public class PlayerHudDto
     public int Deaths { get; set; }
     public int Assists { get; set; }
     public int RoundKills { get; set; }
+    public int RoundKillHs { get; set; } // kills com headshot neste round (kill feed)
+    public int Flashed { get; set; }     // 0-255: quão cego está agora (kill feed: "matou cego")
 
     public int Money { get; set; }
     public int EquipmentValue { get; set; }

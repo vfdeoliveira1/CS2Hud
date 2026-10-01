@@ -1,12 +1,55 @@
-# CS2 HUD Exporter
+# CS2 Hud
 
-Pequeno serviço em C#/.NET 8 que:
+Projeto para exibir informações em tempo real de partidas de Counter-Strike 2 em uma HUD web, consumindo dados enviados pelo jogo via Game State Integration (GSI).
 
-1. Recebe os dados que o CS2 envia via **Game State Integration (GSI)** e lê o JSON direto com o `System.Text.Json` do .NET (sem bibliotecas de terceiros, que o Controle Inteligente de Aplicativos do Windows bloqueia).
-2. Converte esses dados num formato simples (`HudStateDto`).
-3. Expõe esse estado num endpoint HTTP JSON (`/api/hud`), pra sua HUD (web, OBS overlay, app externo etc) consumir.
+O repositório está dividido em duas partes:
+
+- `CS2HudExporter/`: serviço em .NET que escuta os dados do CS2 e expõe um endpoint JSON.
+- `CS2Hud/`: HUD em HTML/CSS/JS para mostrar o estado da partida em overlay.
+
+## Visão geral
+
+A arquitetura é simples:
+
+1. O CS2 envia dados de partida para o `CS2HudExporter` via GSI.
+2. O serviço converte esses dados em um modelo próprio e os disponibiliza em `http://localhost:5000/api/hud`.
+3. A HUD em `CS2Hud/hud.html` consulta esse endpoint e renderiza placar, rodada, bomba, jogadores e radar.
+
+## Estrutura do projeto
+
+```text
+CS2Hud/
+├── README.md
+├── CS2Hud/
+│   ├── hud.html
+│   ├── control.html
+│   ├── icons/
+│   └── README.md
+├── CS2HudExporter/
+│   ├── Program.cs
+│   ├── GsiConfig.cs
+│   ├── HudModels.cs
+│   ├── TeamsStore.cs
+│   ├── CS2HudExporter.csproj
+│   ├── readme.md
+│   └── run.bat
+└── CS2MapVeto/
+    ├── index.html
+    └── maps/          (imagens dos mapas)
+```
+
+## Requisitos
+
+- Counter-Strike 2 instalado
+- .NET 8 SDK
+- Navegador para abrir a HUD
+- Opcional: OBS para usar a HUD como overlay transparente
 
 ## Como rodar
+
+### 1) Iniciar o exporter
+
+Abra o terminal na pasta do projeto e execute:
 
 ```bash
 cd CS2HudExporter
@@ -14,12 +57,13 @@ dotnet restore
 dotnet run
 ```
 
-Ao iniciar, o próprio programa acha o CS2 pelas bibliotecas da Steam e grava o arquivo de configuração do GSI dentro da pasta do jogo
-(`.../Counter-Strike Global Offensive/game/csgo/cfg/gamestate_integration_hudexporter.cfg`).
+O programa tenta gerar automaticamente o arquivo de configuração do GSI no caminho do jogo. Se isso falhar, será necessário criar manualmente o arquivo:
 
-Se a detecção automática falhar (ex: instalação em local não padrão), crie o arquivo manualmente com este conteúdo:
+`.../Counter-Strike Global Offensive/game/csgo/cfg/gamestate_integration_hudexporter.cfg`
 
-```
+Conteúdo recomendado:
+
+```ini
 "HudExporter Integration Configuration"
 {
     "uri"          "http://localhost:3000/"
@@ -49,21 +93,65 @@ Se a detecção automática falhar (ex: instalação em local não padrão), cri
 }
 ```
 
-Depois de salvar o `.cfg`, é preciso reiniciar o CS2 (ou trocar de mapa) pra ele carregar a integração.
+Depois de salvar o arquivo, reinicie o CS2 ou troque de mapa para carregar a integração.
 
-## Portas usadas
+### 2) Abrir a HUD
 
-- **3000** — porta interna que recebe os dados do jogo (GSI). Não precisa acessar diretamente.
-- **5000** — API que você (ou sua HUD) consome.
+Abra o arquivo:
 
-Se alguma delas já estiver em uso na sua máquina, troque os números em `Program.cs`
-(`builder.WebHost.UseUrls(...)`), em `GsiConfig.cs` e no `.cfg` (campo `"uri"`).
+```text
+CS2Hud/hud.html
+```
 
-## Endpoint
+No navegador, ou use o arquivo em um Browser Source no OBS.
 
-### `GET /api/hud`
+A HUD acessa automaticamente a API:
 
-Retorna o estado mais recente da partida:
+```text
+http://localhost:5000/api/hud
+```
+
+### 3) Nomes e logos dos times (opcional)
+
+Abra no navegador:
+
+```text
+CS2Hud/control.html
+```
+
+Preencha o nome e a logo do time que está de **CT agora** e do que está de **TR agora** e clique em **Salvar**. A HUD passa a mostrar o nome no placar e a logo no lugar do ícone CT/TR, e o popup de vencedor do round usa esse nome e essa logo.
+
+- Na troca de lado (intervalo e overtime) o nome e a logo acompanham o time sozinhos, pelos jogadores de cada um. Se aparecerem trocados, use **Inverter lados**.
+- **Coach**: nome do coach de cada time, mostrado na tela de pausa.
+- **Forçar tela de pausa**: mostra a tela de pausa agora. Na pausa técnica e no timeout do jogo ela aparece sozinha (espectando), com valor de equipamento, loss bonus, timeouts restantes, armas/granadas/dinheiro de cada jogador e a contagem do timeout.
+- **Padrão** volta para COUNTER / TERRORIST com os ícones CT e TR, sem série.
+- A configuração fica salva em `CS2HudExporter/teams.json` (não vai para o git).
+
+### 4) Veto de mapas (picks e bans)
+
+Abra no navegador:
+
+```text
+CS2MapVeto/index.html
+```
+
+1. Digite os nomes dos times (o Time A começa) e escolha MD1, MD3 ou MD5.
+2. Os times banem/escolhem clicando nos mapas, na ordem:
+   - **MD1**: A bane, B bane... até sobrar um mapa.
+   - **MD3**: A bane, B bane, A escolhe (B escolhe o lado), B escolhe (A escolhe o lado), A bane, B bane; o que sobra é o decisivo.
+   - **MD5**: A bane, B bane, depois A e B escolhem alternado (o outro time escolhe o lado) até sobrar o decisivo.
+3. No fim aparecem os mapas da série na ordem, os banidos e a ordem completa.
+4. Em **Série na HUD**, digite o placar final de cada mapa (o vencedor é marcado sozinho) e marque o mapa em jogo com **AO VIVO**. Isso vai para a HUD (o exportador precisa estar rodando): no tempo de compra aparece a série no canto superior direito (mapa, pick, vencedor, placar), e os quadrados de mapas vencidos ao lado do placar saem daqui. Use nos times os mesmos nomes do `control.html`, para a HUD ligar logo e quadrados.
+
+Imagens dos mapas: coloque em `CS2MapVeto/maps/` com os nomes `mirage`, `dust2`, `cache`, `inferno`, `anubis`, `ancient`, `nuke` (`.jpg`, `.png` ou `.webp`). O veto em andamento fica salvo no navegador (sobrevive ao F5); **Desfazer** volta um passo.
+
+## Endpoints
+
+### GET /api/hud
+
+Retorna o estado mais recente da partida em JSON.
+
+Exemplo de resposta:
 
 ```json
 {
@@ -73,53 +161,52 @@ Retorna o estado mais recente da partida:
   "round": 12,
   "bombState": "planted",
   "scoreboard": {
-    "ct": { "teamName": "CT", "score": 7, "consecutiveRoundLosses": 0, "timeoutsRemaining": 1 },
-    "t":  { "teamName": "T",  "score": 5, "consecutiveRoundLosses": 2, "timeoutsRemaining": 1 }
+    "ct": { "teamName": "CT", "score": 7 },
+    "t": { "teamName": "T", "score": 5 }
   },
-  "players": [
-    {
-      "steamId": "76561198000000000",
-      "nick": "playerNick",
-      "team": "CT",
-      "health": 100,
-      "armor": 100,
-      "hasArmor": true,
-      "hasHelmet": true,
-      "hasDefuseKit": true,
-      "activeWeapon": "AK-47",
-      "kills": 12,
-      "deaths": 8,
-      "assists": 3,
-      "roundKills": 1,
-      "money": 3200,
-      "equipmentValue": 4750,
-      "utility": ["Flashbang", "Smoke Grenade", "High Explosive Grenade"],
-      "position": { "x": 123.4, "y": -456.7, "z": 64.0 }
-    }
-  ]
+  "players": []
 }
 ```
 
-Se ainda não chegou nenhum dado do jogo, o endpoint responde `204 No Content`.
+Se ainda não houver dados do jogo, a API pode responder `204 No Content`.
 
-## Observações importantes sobre os dados do GSI
+### Times (usados pelo `control.html`)
 
-- **Posições e dados de todos os jogadores** (`AllPlayers`) só vêm preenchidos quando você está **espectando/observando** a partida
-  (ex: como caster, ou observador num servidor de scrim/campeonato). Jogando normalmente, o CS2 só expõe os dados do **seu próprio jogador**
-  — por isso o código tem um fallback: se `AllPlayers` vier vazio, ele usa `gs.Player` (só você) na lista.
-- Isso é limitação do próprio GSI da Valve, não do código — não tem como contornar.
-- O campo `utility` filtra as armas do tipo granada/C4 (`WeaponType` contendo "Grenade" ou "C4" no nome).
-- `activeWeapon` é sempre a arma que o jogador está segurando no momento.
+- `GET /api/teams`: times configurados, pelo lado atual.
+- `POST /api/teams`: salva `{ "bestOf", "forcePause", "ct": { "name", "logo", "mapWins", "coach" }, "t": { ... } }` (logo em data URL; `bestOf` 0/1/3/5/7).
+- `POST /api/teams/swap`: inverte os lados manualmente.
+- `DELETE /api/teams`: volta ao padrão.
+- `GET /api/teams/logo/{id}`: imagem da logo.
 
-## Consumindo de uma HUD web
+### Série (usada pelo `CS2MapVeto`)
 
-De qualquer página HTML/JS (o CORS já está liberado):
+- `GET /api/series` / `POST /api/series` / `DELETE /api/series`: série de mapas (formato, times, mapas com pick, placar e vencedor, mapa atual). Fica salva em `CS2HudExporter/series.json`.
 
-```js
-setInterval(async () => {
-  const res = await fetch("http://localhost:5000/api/hud");
-  if (res.status === 204) return; // ainda sem dados
-  const state = await res.json();
-  console.log(state.scoreboard, state.players);
-}, 500);
-```
+## Funcionalidades
+
+- placar da partida
+- informações da rodada e fase atual
+- estado da bomba
+- dados de jogadores
+- arsenal e utilitários
+- radar de posições (quando disponível em observação/espectador)
+- trajetória de utilitários, fumaças e fogo no radar
+- nomes e logos dos times (painel `control.html`) e popup de vencedor do round
+- HUD pronta para uso em navegador ou OBS
+
+## Observações importantes
+
+- Dados de posições e de todos os jogadores geralmente só aparecem quando você está assistindo ou observando a partida.
+- Em partida normal, o CS2 geralmente só entrega dados do seu próprio jogador.
+- O projeto usa o endpoint local da API para manter a HUD leve e fácil de integrar.
+
+## Solução de problemas
+
+- Se a HUD não atualizar, verifique se o `CS2HudExporter` está rodando.
+- Certifique-se de que o arquivo GSI foi criado corretamente na pasta do jogo.
+- Verifique se as portas `3000` e `5000` não estão em uso.
+- Caso necessário, ajuste as portas em `Program.cs` e no arquivo `.cfg`.
+
+## Licença
+
+Este projeto foi criado para uso pessoal e aprendizagem. Ajuste conforme necessário para o seu ambiente e objetivos.

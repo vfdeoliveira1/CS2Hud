@@ -52,6 +52,8 @@ builder.Logging.SetMinimumLevel(LogLevel.Warning);
 // Times (nome + logo) configurados pelo painel control.html. Ficam salvos
 // num teams.json na pasta do projeto, pra sobreviver a reinícios.
 var teams = new TeamsStore(Path.Combine(builder.Environment.ContentRootPath, "teams.json"));
+// Série de mapas enviada pelo veto (CS2MapVeto/index.html).
+var series = new SeriesStore(Path.Combine(builder.Environment.ContentRootPath, "series.json"));
 
 var app = builder.Build();
 app.UseCors();
@@ -65,6 +67,7 @@ app.MapGet("/api/hud", () =>
         if (latestHudState is null)
             return Results.Json(new { message = "Nenhum dado recebido do CS2 ainda." }, statusCode: 204);
         latestHudState.Teams = teams.Resolve(latestHudState.Players);
+        latestHudState.Series = series.Get();
         return Results.Ok(latestHudState);
     }
 });
@@ -93,6 +96,21 @@ app.MapDelete("/api/teams", () =>
 {
     teams.Clear();
     return Results.Ok(teams.Resolve(CurrentPlayers(), includeLogoData: true));
+});
+
+// ---- Série de mapas (CS2MapVeto) ----
+app.MapGet("/api/series", () => Results.Ok(series.Get()));
+
+app.MapPost("/api/series", (SeriesDto input) =>
+{
+    series.Set(input);
+    return Results.Ok(series.Get());
+});
+
+app.MapDelete("/api/series", () =>
+{
+    series.Set(null);
+    return Results.Ok();
 });
 
 app.MapGet("/api/teams/logo/{id}", (string id) =>
@@ -264,6 +282,8 @@ static PlayerHudDto MapPlayer(string steamId, JsonObject player)
         Deaths = Int(stats?["deaths"]),
         Assists = Int(stats?["assists"]),
         RoundKills = Int(state?["round_kills"]),
+        RoundKillHs = Int(state?["round_killhs"]),
+        Flashed = Int(state?["flashed"]),
 
         Money = Int(state?["money"]),
         EquipmentValue = Int(state?["equip_value"]),

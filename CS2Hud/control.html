@@ -77,17 +77,6 @@
   .seg{display:flex;flex-wrap:wrap}
   .seg button{margin-left:-1px}
   .seg button.on{background:var(--bone);color:var(--bg);border-color:var(--bone);position:relative}
-  .maps{display:flex;align-items:center;gap:8px;margin-top:16px;min-height:28px}
-  .maps .boxes{display:flex;gap:6px}
-  .maps .box{width:28px;height:20px;padding:0;background:var(--panel2);border:1px solid var(--line);cursor:pointer}
-  .team.ct .maps .box.won{background:var(--ct);border-color:var(--ct)}
-  .team.tr .maps .box.won{background:var(--tr);border-color:var(--tr)}
-  .maps .none{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel)}
-  /* quadrados na prévia */
-  .pSeries{display:flex;flex-direction:column;gap:3px;margin-left:auto}
-  .pSide.right .pSeries{margin-left:0;margin-right:auto}
-  .pSeries i{display:block;width:12px;height:7px;background:rgba(237,239,242,.14)}
-  .pSeries.ct i.won{background:var(--ct)} .pSeries.tr i.won{background:var(--tr)}
 
   .actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
   .actions .spacer{flex:1}
@@ -106,21 +95,12 @@
 
   <!-- como vai ficar o placar da HUD -->
   <div class="preview">
-    <div class="pSide"><span class="pTag ct" id="pvCtTag">CT</span><span class="pName" id="pvCtName">COUNTER</span><span class="pSeries ct" id="pvCtSeries"></span></div>
+    <div class="pSide"><span class="pTag ct" id="pvCtTag">CT</span><span class="pName" id="pvCtName">COUNTER</span></div>
     <div class="pScore" id="pvScore">0 : 0</div>
-    <div class="pSide right"><span class="pTag tr" id="pvTrTag">TR</span><span class="pName" id="pvTrName">TERRORIST</span><span class="pSeries tr" id="pvTrSeries"></span></div>
+    <div class="pSide right"><span class="pTag tr" id="pvTrTag">TR</span><span class="pName" id="pvTrName">TERRORIST</span></div>
   </div>
 
   <div class="seriesBar">
-    <label>Série</label>
-    <div class="seg" id="bestOf">
-      <button type="button" data-bo="0">Sem série</button>
-      <button type="button" data-bo="1">MD1</button>
-      <button type="button" data-bo="3">MD3</button>
-      <button type="button" data-bo="5">MD5</button>
-      <button type="button" data-bo="7">MD7</button>
-    </div>
-    <span class="spacer" style="flex:1"></span>
     <label class="check" title="Mostra a tela de pausa na HUD agora. Pausa técnica e timeout do jogo já aparecem sozinhos (espectando).">
       <input type="checkbox" id="forcePause"> Forçar tela de pausa
     </label>
@@ -141,7 +121,6 @@
           <button type="button" id="ctClearLogo">Remover logo</button>
         </div>
       </div>
-      <div class="maps"><label>Mapas vencidos</label><div class="boxes" id="ctMaps"></div></div>
     </section>
 
     <section class="team tr">
@@ -158,7 +137,6 @@
           <button type="button" id="tClearLogo">Remover logo</button>
         </div>
       </div>
-      <div class="maps"><label>Mapas vencidos</label><div class="boxes" id="tMaps"></div></div>
     </section>
   </div>
 
@@ -175,7 +153,7 @@
     Na troca de lado (intervalo e overtime) o nome e a logo acompanham o time sozinhos, pelos jogadores de cada um.
     Se algum dia aparecerem trocados, clique em <b>Inverter lados</b>. Um lado sem nome e sem logo usa o padrão da HUD.
     O <b>coach</b> aparece na tela de pausa, que surge sozinha na pausa técnica e no timeout (espectando) ou quando você marca <b>Forçar tela de pausa</b>.
-    Em <b>Série</b>, escolha MD1/MD3/MD5/MD7 e marque os <b>mapas vencidos</b> de cada time: a HUD mostra um quadrado por mapa necessário pra vencer a série.
+    A <b>série</b> (MD1/MD3/MD5, mapas, placares e vencedores) agora é definida no <b>CS2MapVeto/index.html</b> - use lá os mesmos nomes de time daqui.
     O CS2HudExporter precisa estar rodando.
   </p>
 </div>
@@ -188,8 +166,7 @@
   var $ = function(id){ return document.getElementById(id); };
 
   // estado do formulário: side 'ct' | 't'
-  var form = { bestOf: 0, forcePause: false, ct: { name: '', logo: '', mapWins: 0, coach: '' }, t: { name: '', logo: '', mapWins: 0, coach: '' } };
-  function mapsToWin(){ return form.bestOf ? Math.ceil(form.bestOf / 2) : 0; } // MD1=1, MD3=2, MD5=3, MD7=4
+  var form = { forcePause: false, ct: { name: '', logo: '', coach: '' }, t: { name: '', logo: '', coach: '' } };
   var dirty = false; // editou e ainda não salvou: não sobrescreve com o servidor
 
   function setMsg(text, kind){
@@ -217,29 +194,6 @@
       }
       $(side + 'ClearLogo').disabled = !form[side].logo;
 
-      // quadrados de mapas vencidos: clicar no N marca N mapas; clicar no
-      // último marcado desmarca ele
-      var maps = $(side + 'Maps');
-      maps.innerHTML = '';
-      var n = mapsToWin();
-      if(!n){ maps.innerHTML = '<span class="none">escolha a série acima</span>'; }
-      for(var i = 0; i < n; i++){
-        (function(i){
-          var b = document.createElement('button');
-          b.type = 'button';
-          b.className = 'box' + (i < form[side].mapWins ? ' won' : '');
-          b.title = 'Mapa ' + (i + 1);
-          b.addEventListener('click', function(){
-            form[side].mapWins = form[side].mapWins === i + 1 ? i : i + 1;
-            dirty = true;
-            renderForm();
-          });
-          maps.appendChild(b);
-        })(i);
-      }
-    });
-    [].forEach.call($('bestOf').children, function(b){
-      b.className = Number(b.dataset.bo) === form.bestOf ? 'on' : '';
     });
     $('forcePause').checked = form.forcePause;
     renderPreview();
@@ -248,13 +202,6 @@
   function renderPreview(){
     [['ct', 'pvCtTag', 'pvCtName', 'CT', 'COUNTER'], ['t', 'pvTrTag', 'pvTrName', 'TR', 'TERRORIST']].forEach(function(r){
       var side = r[0], tag = $(r[1]), cls = side === 'ct' ? 'ct' : 'tr';
-      var series = $(side === 'ct' ? 'pvCtSeries' : 'pvTrSeries');
-      series.innerHTML = '';
-      for(var i = mapsToWin() - 1; i >= 0; i--){
-        var box = document.createElement('i');
-        if(i < form[side].mapWins) box.className = 'won';
-        series.appendChild(box);
-      }
       $(r[2]).textContent = form[side].name.trim() || r[4];
       tag.innerHTML = '';
       if(form[side].logo){
@@ -268,11 +215,10 @@
   }
 
   function fromServer(data){
-    form.bestOf = data.bestOf || 0;
     form.forcePause = !!data.forcePause;
     ['ct', 't'].forEach(function(side){
       var d = data[side] || {};
-      form[side] = { name: d.name || '', logo: d.logo || '', mapWins: d.mapWins || 0, coach: d.coach || '' };
+      form[side] = { name: d.name || '', logo: d.logo || '', coach: d.coach || '' };
     });
     dirty = false;
     renderForm();
@@ -356,17 +302,6 @@
     });
   });
 
-  [].forEach.call($('bestOf').children, function(b){
-    b.addEventListener('click', function(){
-      form.bestOf = Number(b.dataset.bo);
-      var n = mapsToWin();
-      form.ct.mapWins = Math.min(form.ct.mapWins, n);
-      form.t.mapWins = Math.min(form.t.mapWins, n);
-      dirty = true;
-      renderForm();
-    });
-  });
-
   $('forcePause').addEventListener('change', function(){
     form.forcePause = this.checked;
     dirty = true;
@@ -375,20 +310,12 @@
 
   $('saveBtn').addEventListener('click', function(){
     var body = {
-      bestOf: form.bestOf,
       forcePause: form.forcePause,
-      ct: { name: form.ct.name.trim(), logo: form.ct.logo, mapWins: form.ct.mapWins, coach: form.ct.coach.trim() },
-      t: { name: form.t.name.trim(), logo: form.t.logo, mapWins: form.t.mapWins, coach: form.t.coach.trim() }
+      ct: { name: form.ct.name.trim(), logo: form.ct.logo, coach: form.ct.coach.trim() },
+      t: { name: form.t.name.trim(), logo: form.t.logo, coach: form.t.coach.trim() }
     };
     request('POST', '/api/teams', body).then(function(data){
       fromServer(data);
-      // exportador de antes da série não conhece "bestOf": avisa em vez de
-      // dizer que salvou (senão parece que o painel "desmarcou sozinho")
-      if(body.bestOf && data.bestOf === undefined){
-        setMsg('Nome/logo salvos, mas a SÉRIE não: o CS2HudExporter que está rodando é uma versão antiga. ' +
-          'Atualize o TeamsStore.cs, feche o exportador e rode de novo.', 'err');
-        return;
-      }
       setMsg('Salvo! A HUD já está usando.', 'ok');
     }).catch(function(){ setMsg('Não consegui salvar: o CS2HudExporter está rodando?', 'err'); });
   });

@@ -7,3 +7,6 @@ obj/
 
 # Times configurados no control.html (dados locais de cada máquina)
 teams.json
+
+# Série de mapas enviada pelo CS2MapVeto (dados locais)
+series.json

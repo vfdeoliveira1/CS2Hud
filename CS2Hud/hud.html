@@ -50,6 +50,41 @@
   .series.ct i.won{background:var(--ct);box-shadow:none}
   .series.tr i.won{background:var(--tr);box-shadow:none}
 
+  /* ---------------- popup de fim de jogo (vencedor do mapa) ---------------- */
+  /* sequência: brilho de fundo -> painel abre do centro -> "VENCEU O MAPA"
+     -> logo salta -> nome sobe letra a letra -> placar -> reflexo + confete */
+  .matchWin{position:absolute;inset:0;display:none;align-items:center;justify-content:center;pointer-events:none;z-index:50;overflow:hidden}
+  .matchWin.show{display:flex}
+  .matchWin.hide{display:flex;animation:mwOut .9s ease forwards}
+  .matchWin.ct{--team:var(--ct);--team-rgb:110,158,218} .matchWin.tr{--team:var(--tr);--team-rgb:217,164,65}
+  .mwGlow{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(var(--team-rgb),.38) 0%,rgba(9,13,18,.55) 55%,rgba(9,13,18,0) 100%);
+    animation:mwFade .7s ease both}
+  .mwPanel{position:relative;min-width:820px;max-width:1500px;padding:40px 80px 36px;background:var(--bg);
+    border-top:6px solid var(--team);border-bottom:6px solid var(--team);text-align:center;overflow:hidden;
+    box-shadow:0 0 80px rgba(var(--team-rgb),.45);animation:mwWipe .75s cubic-bezier(.2,.9,.2,1) .15s both}
+  .mwPanel::after{content:'';position:absolute;top:0;bottom:0;left:-40%;width:28%;
+    background:linear-gradient(100deg,transparent,rgba(255,255,255,.16),transparent);animation:mwShine 3.2s ease-in-out 1.6s infinite}
+  .mwLabel{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--team);text-transform:uppercase;
+    animation:mwTrack 1s cubic-bezier(.2,.9,.2,1) .5s both}
+  .mwLogo{height:130px;margin:18px auto 6px;display:block;object-fit:contain;animation:mwPop .8s cubic-bezier(.3,1.4,.5,1) .7s both}
+  .mwName{font-family:'Anton',sans-serif;font-size:120px;line-height:1.05;letter-spacing:.03em;color:#fff;text-transform:uppercase;
+    perspective:600px;white-space:nowrap}
+  .mwName .l{display:inline-block;animation:mwLetter .55s cubic-bezier(.2,.9,.2,1) both;animation-delay:calc(.95s + var(--i) * .055s)}
+  .mwScore{font-family:'Anton',sans-serif;font-size:56px;letter-spacing:.06em;color:var(--bone);margin-top:6px;animation:mwFade .6s ease 1.7s both}
+  .mwScore b{color:var(--team);font-weight:400}
+  .mwConf i{position:absolute;top:-24px;width:10px;height:16px;background:var(--team);opacity:.95;
+    animation:mwFall linear forwards}
+  .mwConf i:nth-child(3n){background:#fff}
+  .mwConf i:nth-child(4n){width:7px;height:7px;border-radius:50%}
+  @keyframes mwFade{from{opacity:0}to{opacity:1}}
+  @keyframes mwOut{to{opacity:0}}
+  @keyframes mwWipe{from{clip-path:inset(0 50% 0 50%);opacity:.4}to{clip-path:inset(0 0 0 0);opacity:1}}
+  @keyframes mwShine{0%{left:-40%}60%,100%{left:120%}}
+  @keyframes mwTrack{from{letter-spacing:1.4em;opacity:0}to{letter-spacing:.45em;opacity:1}}
+  @keyframes mwPop{0%{transform:scale(0) rotate(-14deg);opacity:0}70%{transform:scale(1.14) rotate(3deg);opacity:1}100%{transform:scale(1) rotate(0)}}
+  @keyframes mwLetter{from{transform:translateY(70%) rotateX(85deg);opacity:0}to{transform:none;opacity:1}}
+  @keyframes mwFall{to{transform:translateY(1160px) rotate(var(--r))}}
+
   /* ---------------- popup de vencedor do round ---------------- */
   .roundWin{position:absolute;top:150px;left:50%;transform:translate(-50%,-12px);
     display:flex;align-items:center;gap:16px;padding:14px 34px 14px 22px;min-width:420px;
@@ -85,6 +120,20 @@
   .spine-main.defusing #defuseBar{display:block}
   .spine-main.defusing .scoreCol{transform:translateY(-8px)}
   .score .lead{color:#fff} .score .trail{color:var(--steel)}
+  /* ---------------- jogadores vivos (abaixo do placar) ---------------- */
+  /* CT à esquerda, TR à direita: número + 5 bolinhas (apagada = morto).
+     Some no tempo de compra, quando o histórico de rounds ocupa o lugar. */
+  .alive{position:absolute;top:96px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:14px;
+    background:var(--bg);border:1px solid var(--line);padding:5px 14px;transition:opacity .3s ease}
+  .alive.hide{opacity:0}
+  .alive .side{display:flex;align-items:center;gap:8px;padding:0}
+  .alive .num{font-family:'Anton',sans-serif;font-size:24px;line-height:1;min-width:16px;text-align:center}
+  .alive .ct .num{color:var(--ct)} .alive .tr .num{color:var(--tr)}
+  .alive .pips{display:flex;gap:4px}
+  .alive .pips i{width:9px;height:14px;background:rgba(237,239,242,.14);clip-path:polygon(25% 0,75% 0,100% 100%,0 100%)}
+  .alive .ct .pips i.on{background:var(--ct)} .alive .tr .pips i.on{background:var(--tr)}
+  .alive .lbl{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--steel);text-transform:uppercase}
+
   /* ---------------- histórico de rounds do half (tempo de compra) ---------------- */
   /* uma linha por time; em cada round, o ícone de como ele foi vencido
      (caveira = eliminação, kit = defuse, explosão = bomba, relógio = tempo),
@@ -122,45 +171,60 @@
   /* ---------------- colunas de jogadores ---------------- */
   /* top calculado pra caber 5 cards (92px + 8px de gap cada) até quase
      o rodapé de uma tela 1920x1080: 5*92 + 4*8 = 492px de altura total. */
-  .roster{position:absolute;top:560px;width:460px;display:flex;flex-direction:column;gap:8px}
+  /* cards compactos (380x66) colados no rodapé: 5*66 + 4*5 = 350px -> top 1080-24-350 = 706,
+     deixando o meio da tela livre pra arma/faca do jogador */
+  .roster{position:absolute;top:706px;width:380px;display:flex;flex-direction:column;gap:5px}
   .roster.left{left:24px} .roster.right{right:24px}
   /* card: [bloco de vida] [linha 1: nº + nick + kills do round ... arma]
                             [linha 2: K/A/D + $ ... granadas, kit, colete]
      + barra de vida fina na base. O lado direito da tela é espelhado. */
-  .card{position:relative;height:92px;display:grid;grid-template-columns:70px 1fr;
+  .card{position:relative;height:66px;display:grid;grid-template-columns:54px 1fr;
         background:var(--bg-soft);backdrop-filter:blur(5px);overflow:hidden;transition:opacity .2s;
         --team:var(--steel);--team-soft:rgba(120,132,143,.16)}
   .card.ct{--team:var(--ct);--team-soft:rgba(110,158,218,.16)}
   .card.tr{--team:var(--tr);--team-soft:rgba(217,164,65,.16)}
-  .card.dead{opacity:.38}
+  /* Vida proporcional: a parte do card que corresponde à vida PERDIDA fica
+     "esbranquiçada" (38% de opacidade, igual ao card de morto), começando
+     pela ponta da arma e indo até o bloco de vida. --hp vem do JS (0-100%).
+     100% = card todo forte; 0% / morto = card todo apagado. */
+  .card{--hp:100%;
+    -webkit-mask-image:linear-gradient(to left, rgba(0,0,0,.38) calc(100% - var(--hp)), #000 calc(100% - var(--hp)));
+            mask-image:linear-gradient(to left, rgba(0,0,0,.38) calc(100% - var(--hp)), #000 calc(100% - var(--hp)))}
+  /* lado direito da tela é espelhado: a arma fica à esquerda */
+  .roster.right .card{
+    -webkit-mask-image:linear-gradient(to right, rgba(0,0,0,.38) calc(100% - var(--hp)), #000 calc(100% - var(--hp)));
+            mask-image:linear-gradient(to right, rgba(0,0,0,.38) calc(100% - var(--hp)), #000 calc(100% - var(--hp)))}
+  .card.empty{-webkit-mask-image:none;mask-image:none}
   .card.empty{opacity:.25}
   .hpBox{display:flex;align-items:center;justify-content:center;background:var(--team-soft);
         border-left:4px solid var(--team);
-        font-family:'JetBrains Mono',monospace;font-weight:700;font-size:26px}
+        font-family:'JetBrains Mono',monospace;font-weight:700;font-size:21px}
   .hpBox.good{color:var(--good)} .hpBox.warn{color:var(--warn)} .hpBox.bad{color:var(--bad)}
   .card.dead .hpBox{color:var(--steel)}
-  .cMain{display:flex;flex-direction:column;justify-content:center;gap:9px;padding:0 16px;min-width:0}
+  .cMain{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:0 12px;min-width:0}
   .cRow{display:flex;align-items:center;gap:10px;min-width:0}
-  .badge{flex:none;width:20px;height:20px;border-radius:50%;background:var(--team);color:#0b0f14;
+  .badge{flex:none;width:17px;height:17px;border-radius:50%;background:var(--team);color:#0b0f14;
         display:flex;align-items:center;justify-content:center;
-        font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;line-height:1}
-  .nick{font-size:26px;font-weight:700;text-transform:uppercase;line-height:1;
+        font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;line-height:1}
+  .nick{font-size:21px;font-weight:700;text-transform:uppercase;line-height:1;
         white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-  /* abates neste round: losangos vermelhos ao lado do nick */
-  .killPips{display:flex;gap:3px;flex:none}
-  .killPips i{width:9px;height:9px;background:var(--bad);
-    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);display:block}
-  .weaponIc{margin-left:auto;flex:none;height:26px;width:90px;object-fit:contain;object-position:right center}
-  .stats{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--steel);flex:none}
+  /* abates neste round: uma caveira por kill, logo antes da arma */
+  .killSkulls{display:flex;gap:3px;flex:none;margin-left:auto}
+  .killSkulls + .weaponIc{margin-left:0}
+  .roster.right .killSkulls{margin-left:0;margin-right:auto}
+  .roster.right .killSkulls + .weaponIc{margin-right:0}
+  .killSkulls svg{width:14px;height:14px;fill:#fff;filter:drop-shadow(0 0 1px rgba(0,0,0,.9))}
+  .weaponIc{margin-left:auto;flex:none;height:20px;width:72px;object-fit:contain;object-position:right center}
+  .stats{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel);flex:none}
   .stats b{font-weight:700;color:var(--bone)}
   .stats .money{color:var(--good);font-weight:700}
   .gear{margin-left:auto;display:flex;gap:6px;align-items:center;flex:none}
-  .gear img.ic{width:18px;height:18px;object-fit:contain;opacity:.9}
+  .gear img.ic{width:15px;height:15px;object-fit:contain;opacity:.9}
   .gear .sep{width:1px;height:14px;background:var(--line)}
   .hpBar{position:absolute;left:0;bottom:0;height:3px;background:var(--team);transition:width .3s}
 
   /* espelhado no lado direito da tela */
-  .roster.right .card{grid-template-columns:1fr 70px}
+  .roster.right .card{grid-template-columns:1fr 54px}
   .roster.right .hpBox{order:2;border-left:none;border-right:4px solid var(--team)}
   .roster.right .cMain{order:1}
   .roster.right .cRow{flex-direction:row-reverse}
@@ -243,12 +307,41 @@
     drop-shadow(0 0 1px rgba(0,0,0,.9))}
 
   /* ---------------- painel "espectando agora" ---------------- */
+  /* ---------------- card de compra (acima dos cards, no freezetime) ---------------- */
+  /* utilitárias do time (por tipo) + loss bonus atual. Aparece com fade só
+     no tempo de compra; lado direito espelhado. */
+  .buyInfo{position:absolute;top:652px;width:380px;height:48px;display:flex;align-items:center;gap:14px;padding:0 14px;
+    background:var(--bg);border-left:4px solid var(--team);backdrop-filter:blur(6px);
+    opacity:0;visibility:hidden;transform:translateY(8px);
+    transition:opacity .45s ease,transform .45s ease,visibility 0s linear .45s}
+  .buyInfo.show{opacity:1;visibility:visible;transform:none;transition:opacity .45s ease,transform .45s ease,visibility 0s}
+  #stage.paused .buyInfo{opacity:0;visibility:hidden}
+  .buyInfo.left{left:24px} .buyInfo.right{right:24px;flex-direction:row-reverse;border-left:none;border-right:4px solid var(--team)}
+  .buyInfo.ct{--team:var(--ct)} .buyInfo.tr{--team:var(--tr)}
+  .buyInfo .utils{display:flex;align-items:center;gap:11px}
+  .buyInfo.right .utils{flex-direction:row-reverse}
+  .buyInfo .u{display:flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--bone)}
+  .buyInfo .u img.ic{width:15px;height:19px;object-fit:contain}
+  .buyInfo .u.zero{opacity:.35}
+  .buyInfo .lb{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px;line-height:1}
+  .buyInfo.right .lb{margin-left:0;margin-right:auto;align-items:flex-start}
+  .buyInfo .lb .k{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.18em;color:var(--steel);text-transform:uppercase}
+  .buyInfo .lb .v{font-family:'Anton',sans-serif;font-size:22px;letter-spacing:.03em;color:var(--good)}
+
   /* ---------------- tela de pausa / timeout ---------------- */
   /* aparece no lugar dos cards (e do painel "espectando") durante pausa
      técnica, timeout, ou quando forçada no control.html */
-  .pause{position:absolute;left:24px;right:24px;bottom:24px;display:none;flex-direction:column;gap:6px}
-  #stage.paused .pause{display:flex}
-  #stage.paused .roster, #stage.paused .specPanel{display:none !important}
+  /* Transição suave (crossfade) entre o HUD normal e a tela de pausa:
+     opacidade + visibility em vez de display (display não anima). O
+     visibility só desliga depois que o fade de saída termina. */
+  .pause{position:absolute;left:24px;right:24px;bottom:24px;display:flex;flex-direction:column;gap:6px;
+    opacity:0;visibility:hidden;transform:translateY(14px);pointer-events:none;
+    transition:opacity .5s ease,transform .5s ease,visibility 0s linear .5s}
+  #stage.paused .pause{opacity:1;visibility:visible;transform:none;
+    transition:opacity .5s ease .15s,transform .5s ease .15s,visibility 0s}
+  .roster, .specPanel{transition:opacity .4s ease,visibility 0s}
+  #stage.paused .roster, #stage.paused .specPanel{opacity:0;visibility:hidden;
+    transition:opacity .4s ease,visibility 0s linear .4s}
   .pHead,.pBody{display:grid;grid-template-columns:700px 1fr 700px;gap:6px}
   .pBox{background:var(--bg);border:1px solid var(--line);backdrop-filter:blur(6px)}
   .pStats{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;height:62px;padding:0 10px;
@@ -270,23 +363,23 @@
   .pRow{display:grid;grid-template-columns:170px 56px 1fr 150px 86px;align-items:center;gap:10px;height:40px;
     padding:0 12px;background:var(--bg);border-left:4px solid var(--team)}
   .pTable.ct{--team:var(--ct)} .pTable.tr{--team:var(--tr)}
-  .pTable.tr .pRow{grid-template-columns:86px 150px 1fr 56px 170px;border-left:none;border-right:4px solid var(--team)}
+  .pTable.right .pRow{grid-template-columns:86px 150px 1fr 56px 170px;border-left:none;border-right:4px solid var(--team)}
   /* espelha a ordem das colunas: $ | armas | granadas | colete/kit | nick */
-  .pTable.tr .pRow > :nth-child(1){order:5} .pTable.tr .pRow > :nth-child(2){order:4}
-  .pTable.tr .pRow > :nth-child(3){order:3} .pTable.tr .pRow > :nth-child(4){order:2}
-  .pTable.tr .pRow > :nth-child(5){order:1}
+  .pTable.right .pRow > :nth-child(1){order:5} .pTable.right .pRow > :nth-child(2){order:4}
+  .pTable.right .pRow > :nth-child(3){order:3} .pTable.right .pRow > :nth-child(4){order:2}
+  .pTable.right .pRow > :nth-child(5){order:1}
   .pRow.dead{opacity:.45}
   .pRow .pn{font-size:20px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .pTable.tr .pn{text-align:right}
+  .pTable.right .pn{text-align:right}
   .pRow .pIcons{display:flex;gap:5px;align-items:center}
-  .pTable.tr .pIcons{justify-content:flex-end}
+  .pTable.right .pIcons{justify-content:flex-end}
   .pRow .pIcons img.ic{height:18px;width:auto;max-width:22px;object-fit:contain;opacity:.9}
   .pRow .pGuns{display:flex;gap:10px;align-items:center;justify-content:flex-end}
-  .pTable.tr .pGuns{justify-content:flex-start}
+  .pTable.right .pGuns{justify-content:flex-start}
   .pRow .pGuns img.ic{height:20px;width:auto;max-width:86px;object-fit:contain}
-  .pTable.tr .pGuns img.ic{transform:scaleX(-1)}
+  .pTable.right .pGuns img.ic{transform:scaleX(-1)}
   .pRow .pm{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--good);text-align:right}
-  .pTable.tr .pm{text-align:left}
+  .pTable.right .pm{text-align:left}
   .pMid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center}
   .pMid .t1{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.3em;color:var(--steel)}
   .pMid .t2{display:flex;align-items:center;gap:10px;font-family:'Anton',sans-serif;font-size:36px;letter-spacing:.04em;text-transform:uppercase;line-height:1}
@@ -296,12 +389,50 @@
   .pMid .clock{font-family:'Anton',sans-serif;font-size:54px;line-height:1;color:#fff}
   .pCoachRow{display:grid;grid-template-columns:700px 1fr 700px;gap:6px}
   .pCoach{display:flex;align-items:center;gap:8px;height:30px}
-  .pCoach.tr{justify-content:flex-end}
+  .pCoach.right{justify-content:flex-end}
   .pCoach .ck{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.16em;
     padding:4px 7px;background:var(--team);color:#0b0f14}
   .pCoach.ct{--team:var(--ct)} .pCoach.tr{--team:var(--tr)}
   .pCoach .cn{font-size:20px;font-weight:700;text-transform:uppercase;padding:2px 10px;background:var(--bg)}
   .pCoach:empty{visibility:hidden}
+
+  /* ---------------- kill feed (canto superior direito) ---------------- */
+  .killfeed{position:absolute;top:24px;right:24px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;pointer-events:none;
+    transition:opacity .3s ease}
+  #stage.showSeries .killfeed{opacity:0} /* no tempo de compra o painel da série ocupa esse canto */
+
+  /* ---------------- série de mapas (canto superior direito, tempo de compra) ---------------- */
+  /* vem do veto (CS2MapVeto): mapa, quem escolheu, quem venceu e placar */
+  .seriesPanel{position:absolute;top:24px;right:24px;width:380px;background:var(--bg);border:1px solid var(--line);
+    backdrop-filter:blur(6px);opacity:0;visibility:hidden;transform:translateY(-6px);pointer-events:none;
+    transition:opacity .45s ease,transform .45s ease,visibility 0s linear .45s}
+  #stage.showSeries .seriesPanel{opacity:1;visibility:visible;transform:none;transition:opacity .45s ease,transform .45s ease,visibility 0s}
+  .spRow{display:grid;grid-template-columns:1fr 70px 80px 70px;align-items:center;height:40px;padding:0 14px;gap:6px}
+  .spRow + .spRow{border-top:1px solid var(--line)}
+  .spRow.head{height:28px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--steel)}
+  .spRow.live{box-shadow:inset 3px 0 0 var(--good)}
+  .spRow > :not(:first-child){display:flex;justify-content:center;text-align:center}
+  .spRow .mn{font-family:'Anton',sans-serif;font-size:19px;letter-spacing:.05em;text-transform:uppercase;line-height:1}
+  .spRow .tm img{width:26px;height:26px;object-fit:contain}
+  .spRow .tm span{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.04em;
+    max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:uppercase}
+  .spRow .dec{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--steel)}
+  .spRow .sc{font-family:'Anton',sans-serif;font-size:19px;letter-spacing:.04em}
+  .spRow .liveTag{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.14em;
+    color:var(--good);border:1px solid var(--good);padding:3px 6px;line-height:1}
+  .spRow .dash{color:var(--steel)}
+  .kf{display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;background:rgba(9,13,18,.82);
+    border:1px solid var(--line);font-size:20px;font-weight:700;white-space:nowrap;
+    transition:opacity .35s ease,transform .35s ease}
+  .kf.enter{opacity:0;transform:translateX(24px)}
+  .kf.leave{opacity:0}
+  .kf .n{max-width:190px;overflow:hidden;text-overflow:ellipsis}
+  .kf .n.ct{color:var(--ct)} .kf .n.tr{color:var(--tr)}
+  .kf .plus{color:var(--steel);font-size:16px}
+  .kf img.w{height:20px;width:auto;max-width:78px;object-fit:contain;filter:brightness(0) invert(1)}
+  .kf .mod{display:flex;align-items:center}
+  .kf .mod svg{width:20px;height:20px}
+  .kf .mod.world svg{fill:var(--bad)}
 
   /* ---------------- mira no centro da tela ---------------- */
   /* 4 traços verdes com um vão no meio, centralizados exatamente no
@@ -313,7 +444,8 @@
   .crosshair i.l,.crosshair i.r{width:6px;height:2px;top:-1px}
   .crosshair i.t{top:-9px} .crosshair i.b{top:3px}
   .crosshair i.l{left:-9px} .crosshair i.r{left:3px}
-  #stage.paused .crosshair{display:none}
+  .crosshair{transition:opacity .4s ease}
+  #stage.paused .crosshair{opacity:0}
 
   .specPanel{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);
     display:none;align-items:center;gap:16px;background:var(--bg-soft);backdrop-filter:blur(5px);
@@ -335,10 +467,6 @@
     margin-left:auto}
   .specPanel .specHp.good{color:var(--good)} .specPanel .specHp.warn{color:var(--warn)} .specPanel .specHp.bad{color:var(--bad)}
 
-  /* ---------------- pips de kill no round ---------------- */
-  .killPips{display:flex;gap:3px;margin-top:4px}
-  .killPips i{width:8px;height:8px;background:var(--bad);
-    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);display:block}
 </style>
 </head>
 <body>
@@ -365,7 +493,15 @@
     </div>
   </div>
 
+  <div class="alive hide" id="alive">
+    <div class="side ct"><span class="num" id="aliveCT">0</span><span class="pips" id="alivePipsCT"></span></div>
+    <span class="lbl">vivos</span>
+    <div class="side tr"><span class="pips" id="alivePipsT"></span><span class="num" id="aliveT">0</span></div>
+  </div>
+
   <div class="roundHist" id="roundHist"></div>
+
+  <div class="matchWin" id="matchWin"></div>
 
   <div class="roundWin" id="roundWin">
     <img class="rwLogo" id="rwLogo" alt="">
@@ -373,6 +509,9 @@
   </div>
 
   <div id="connWarn">Sem conexão com http://localhost:5000/api/hud — o CS2HudExporter está rodando?</div>
+
+  <div class="buyInfo left ct" id="buyInfoCT"></div>
+  <div class="buyInfo right tr" id="buyInfoT"></div>
 
   <div class="roster left" id="rosterCT"></div>
   <div class="roster right" id="rosterT"></div>
@@ -398,6 +537,9 @@
       <div class="pTable tr" id="pTableT"></div>
     </div>
   </div>
+
+  <div class="killfeed" id="killfeed"></div>
+  <div class="seriesPanel" id="seriesPanel"></div>
 
   <div class="crosshair" id="crosshair"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>
 
@@ -528,7 +670,10 @@
     }
 
     var dead = !!player.isDead;
+    side = sideKey(player.team) || side; // cor = lado em que o jogador está agora
     card.className = 'card ' + side + (dead ? ' dead' : '');
+    var hpPct = dead ? 0 : Math.max(0, Math.min(100, player.health || 0));
+    card.style.setProperty('--hp', hpPct + '%');
 
     // bloco de vida
     var hpBox = document.createElement('div');
@@ -547,9 +692,9 @@
     row1.appendChild(badge); row1.appendChild(nick);
     var rk = player.roundKills || 0;
     if(rk > 0){
-      var pips = document.createElement('span'); pips.className = 'killPips';
-      for(var pi = 0; pi < rk; pi++) pips.appendChild(document.createElement('i'));
-      row1.appendChild(pips);
+      var skulls = document.createElement('span'); skulls.className = 'killSkulls';
+      skulls.innerHTML = new Array(rk + 1).join(RH_ICONS.elimination);
+      row1.appendChild(skulls); // entra antes do ícone da arma (adicionado logo abaixo)
     }
     var wIconSrc = weaponIcon(player.displayWeapon || player.activeWeapon);
     if(wIconSrc) row1.appendChild(makeIcon(wIconSrc, 'weaponIc'));
@@ -593,10 +738,23 @@
     container.appendChild(card);
   }
 
+  // Só reconstrói os cards quando algo que aparece neles mudou. Recriar a
+  // cada atualização recarregava as imagens (armas/granadas) e elas
+  // piscavam em branco por um instante.
+  function cardKey(p){
+    if(!p) return '-';
+    return [p.nick, p.health, !!p.isDead, p.kills, p.assists, p.deaths, p.money, p.roundKills,
+      p.displayWeapon || p.activeWeapon, (p.utility || []).join(','), p.hasArmor, p.hasHelmet, p.hasDefuseKit].join('|');
+  }
+
   function renderRoster(container, players, side, offset){
-    container.innerHTML = '';
     var bySlot = {};
     players.forEach(function(p){ bySlot[p.hudIndex] = p; });
+    var key = side;
+    for(var k = 0; k < 5; k++) key += '#' + cardKey(bySlot[offset + k]);
+    if(container.dataset.key === key) return;
+    container.dataset.key = key;
+    container.innerHTML = '';
     for(var i = 0; i < 5; i++){
       renderCard(container, bySlot[offset + i] || null, offset + i, side);
     }
@@ -628,17 +786,75 @@
   // present: steamIds que vieram no poll atual. Se o time estiver cheio,
   // um slot cujo dono NÃO veio neste poll pode ser reaproveitado (ex:
   // jogador desconectou e outro entrou no lugar).
+  // =====================================================================
+  // LADOS DA TELA: time A sempre à esquerda, time B sempre à direita
+  // =====================================================================
+  // Na troca de lado (intervalo/overtime) os times NÃO mudam de posição na
+  // tela - só as cores (azul CT / laranja TR) trocam. Cada jogador é
+  // marcado como 'L' (esquerda) ou 'R' (direita) pelo steamId, e a posição
+  // de cada lado vem de onde os jogadores da esquerda estão agora.
+  // LAYOUT.left/right = qual lado ('ct'/'tr') aparece em cada posição.
+  var LAYOUT = { left: 'ct', right: 'tr' };
+  var LAYOUT_KEY = 'cs2hud.layout';
+  var teamPos = {};       // steamId -> 'L' | 'R'
+  var layoutMap = null, layoutPlayed = 0, layoutSaved = null;
+
+  function sideKey(team){ return team === 'CT' ? 'ct' : 'tr'; }
+  function scoreOf(sb, side){ return side === 'ct' ? sb.ct : sb.t; }
+
+  (function loadLayout(){
+    try {
+      var saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null');
+      if(saved && saved.pos){ teamPos = saved.pos; layoutMap = saved.map; layoutPlayed = saved.played || 0; }
+    } catch(e){}
+  })();
+
+  function updateLayout(players, state){
+    var valid = players.filter(function(p){ return p.team === 'CT' || p.team === 'T'; });
+    if(!valid.length) return;
+    var played = state.scoreboard.ct.score + state.scoreboard.t.score;
+    var known = valid.some(function(p){ return teamPos[p.steamId]; });
+
+    // começo (ou mapa/partida nova): time A = quem começou de CT. Se a HUD
+    // abrir já no 2º half, quem começou de CT está de TR agora.
+    if(!known || (state.map && state.map !== layoutMap) || played < layoutPlayed){
+      var startedCT = sideParity(played + 1) === 0 ? 'CT' : 'T';
+      teamPos = {};
+      valid.forEach(function(p){ teamPos[p.steamId] = p.team === startedCT ? 'L' : 'R'; });
+      layoutMap = state.map;
+    }
+
+    // onde estão os jogadores da esquerda agora?
+    var lCT = 0, lT = 0;
+    valid.forEach(function(p){ if(teamPos[p.steamId] === 'L'){ if(p.team === 'CT') lCT++; else lT++; } });
+    if(lCT !== lT){
+      var leftTeam = lCT > lT ? 'CT' : 'T';
+      LAYOUT.left = sideKey(leftTeam);
+      LAYOUT.right = LAYOUT.left === 'ct' ? 'tr' : 'ct';
+      // jogador novo (substituto): entra no time do lado em que está
+      valid.forEach(function(p){ if(!teamPos[p.steamId]) teamPos[p.steamId] = p.team === leftTeam ? 'L' : 'R'; });
+    }
+    layoutPlayed = played;
+
+    var data = JSON.stringify({ map: layoutMap, played: layoutPlayed, pos: teamPos });
+    if(data !== layoutSaved){ layoutSaved = data; try { localStorage.setItem(LAYOUT_KEY, data); } catch(e){} }
+  }
+
+  function playerPos(p){
+    return teamPos[p.steamId] || (sideKey(p.team) === LAYOUT.left ? 'L' : 'R');
+  }
+
   function assignHudIndex(p, present){
     var idx = hudIndexMap[p.steamId];
-    var inRange = idx !== undefined &&
-      ((p.team === 'CT' && idx >= 0 && idx <= 4) || (p.team === 'T' && idx >= 5 && idx <= 9));
+    var pos = playerPos(p); // esquerda = 0-4, direita = 5-9 (não muda na troca de lado)
+    var inRange = idx !== undefined && (pos === 'L' ? idx <= 4 : idx >= 5);
     if(inRange && (hudIndexOwner[idx] === undefined || hudIndexOwner[idx] === p.steamId)){
       hudIndexOwner[idx] = p.steamId;
       return idx;
     }
     // mudou de time ou nunca teve slot - libera o antigo (se tinha) e pega um novo
     if(idx !== undefined && hudIndexOwner[idx] === p.steamId) delete hudIndexOwner[idx];
-    var start = p.team === 'CT' ? 0 : 5;
+    var start = pos === 'L' ? 0 : 5;
     for(var i = start; i < start + 5; i++){
       if(hudIndexOwner[i] === undefined){
         hudIndexMap[p.steamId] = i;
@@ -778,6 +994,178 @@
   }
 
   // =====================================================================
+  // KILL FEED
+  // =====================================================================
+  // O GSI não manda os eventos de kill, só o estado dos jogadores. O feed é
+  // reconstruído comparando um pacote com o anterior:
+  //  - quem matou: round_kills subiu      - quem morreu: vida foi a 0
+  //  - headshot: round_killhs subiu (exato)
+  //  - assistência: assists subiu        - cego: matador flashado
+  //  - arma: a que o matador tem na mão; HE/molotov pela granada dele que
+  //    explodiu/queima perto da vítima
+  //  - através da fumaça: fumaça ativa entre matador e vítima (estimado)
+  // Varado (wallbang), no scope e pulando NÃO existem nos dados do GSI.
+  var KF_MAX = 5;          // linhas na tela
+  var KF_TTL_MS = 6000;    // quanto tempo cada linha fica
+  var KF_PAIR_MS = 700;    // janela pra juntar "alguém matou" com "alguém morreu"
+  var KF_ICONS = {
+    hs: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="9.5" r="6"/><path d="M6.5 21c.6-2.6 2.9-4.3 5.5-4.3s4.9 1.7 5.5 4.3"/><circle cx="12" cy="9.5" r="2" fill="#fff" stroke="none"/></svg>',
+    blind: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/><path d="M4 20L20 4"/></svg>',
+    smoke: '<svg viewBox="0 0 24 24" fill="#fff"><path d="M6.5 19a4.5 4.5 0 0 1-.9-8.9A6 6 0 0 1 17.3 8.6 4.5 4.5 0 0 1 17.5 19z"/></svg>'
+  };
+
+  var kfPrev = {};            // steamId -> estado do pacote anterior
+  var kfPrimed = false;       // primeiro pacote após abrir/F5 não gera kill
+  var kfKills = [], kfDeaths = [], kfAssists = [];
+  var kfLastFrags = {}, kfFragBooms = [];
+
+  function kfValidPos(p){ return p && !(p.x === 0 && p.y === 0 && p.z === 0) ? { x: p.x, y: p.y } : null; }
+  function kfDist(a, b){ return Math.hypot(a.x - b.x, a.y - b.y); }
+  function kfSegDist(p, a, b){
+    var dx = b.x - a.x, dy = b.y - a.y, len = dx * dx + dy * dy;
+    var t = len ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len)) : 0;
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  }
+
+  function updateKillFeed(state){
+    var now = Date.now();
+    var nades = state.grenades || [];
+
+    // HE: quando a entidade "frag" some, ela explodiu ali
+    var frags = {};
+    nades.forEach(function(g){
+      if((g.type || '').toLowerCase() === 'frag' && kfValidPos(g.position)) frags[g.id] = { owner: g.owner, pos: kfValidPos(g.position) };
+    });
+    Object.keys(kfLastFrags).forEach(function(id){
+      if(!frags[id]) kfFragBooms.push({ owner: kfLastFrags[id].owner, pos: kfLastFrags[id].pos, t: now });
+    });
+    kfLastFrags = frags;
+    kfFragBooms = kfFragBooms.filter(function(f){ return now - f.t < 1500; });
+
+    (state.players || []).forEach(function(p){
+      var prev = kfPrev[p.steamId];
+      var team = (p.team === 'CT' || p.team === 'T') ? p.team : (prev && prev.team);
+      var alivePos = p.health > 0 ? kfValidPos(p.position) : null;
+      var cur = {
+        health: p.health, rk: p.roundKills || 0, rhs: p.roundKillHs || 0, assists: p.assists || 0,
+        team: team, nick: p.nick,
+        pos: alivePos || (prev && prev.pos) || null // morto: fica a última posição VIVO
+      };
+      if(kfPrimed && prev){
+        if(prev.health > 0 && p.health <= 0) kfDeaths.push({ id: p.steamId, nick: p.nick, team: team, pos: prev.pos, t: now });
+        var newKills = cur.rk - prev.rk, newHs = cur.rhs - prev.rhs;
+        for(var i = 0; i < newKills; i++){
+          kfKills.push({ id: p.steamId, nick: p.nick, team: team, pos: cur.pos, t: now,
+            hs: i < newHs, blind: (p.flashed || 0) > 40, weapon: p.activeWeapon });
+        }
+        if(cur.assists > prev.assists) kfAssists.push({ id: p.steamId, nick: p.nick, team: team, t: now });
+      }
+      kfPrev[p.steamId] = cur;
+    });
+    kfPrimed = true;
+    kfPair(now, nades);
+  }
+
+  function kfPair(now, nades){
+    var remaining = [];
+    kfDeaths.forEach(function(d){
+      // de preferência um matador do outro time; senão, qualquer um (TK)
+      var k = -1;
+      for(var i = 0; i < kfKills.length; i++){ if(kfKills[i].team !== d.team){ k = i; break; } }
+      if(k === -1 && kfKills.length) k = 0;
+      if(k !== -1){
+        var kill = kfKills.splice(k, 1)[0];
+        var a = -1;
+        for(var j = 0; j < kfAssists.length; j++){
+          if(kfAssists[j].team === kill.team && kfAssists[j].id !== kill.id){ a = j; break; }
+        }
+        var assist = a !== -1 ? kfAssists.splice(a, 1)[0] : null;
+        kfAdd({ killer: kill, victim: d, assist: assist, weapon: kfWeapon(kill, d, nades), hs: kill.hs, blind: kill.blind,
+          smoke: kfThroughSmoke(kill.pos, d.pos, nades) });
+      } else if(now - d.t > KF_PAIR_MS){
+        kfAdd({ killer: null, victim: d }); // morreu sozinho (queda, bomba, suicídio)
+      } else {
+        remaining.push(d);
+      }
+    });
+    kfDeaths = remaining;
+    kfKills = kfKills.filter(function(k){ return now - k.t <= KF_PAIR_MS; });
+    kfAssists = kfAssists.filter(function(a){ return now - a.t <= KF_PAIR_MS; });
+  }
+
+  function kfWeapon(kill, death, nades){
+    if(death.pos){
+      // molotov/incendiária do matador queimando perto da vítima
+      for(var i = 0; i < nades.length; i++){
+        var g = nades[i];
+        if((g.type || '').toLowerCase() !== 'inferno' || g.owner !== kill.id) continue;
+        var flames = (g.flames || []).concat(g.position ? [g.position] : []);
+        for(var f = 0; f < flames.length; f++){
+          var fp = kfValidPos(flames[f]);
+          if(fp && kfDist(fp, death.pos) < 180) return 'inferno';
+        }
+      }
+      // HE do matador que explodiu perto da vítima agora há pouco
+      for(var h = 0; h < kfFragBooms.length; h++){
+        var b = kfFragBooms[h];
+        if(b.owner === kill.id && kfDist(b.pos, death.pos) < 450) return 'weapon_hegrenade';
+      }
+    }
+    return kill.weapon;
+  }
+
+  function kfThroughSmoke(a, b, nades){
+    if(!a || !b) return false;
+    for(var i = 0; i < nades.length; i++){
+      var g = nades[i];
+      if((g.type || '').toLowerCase() !== 'smoke' || !(g.effectTime > 0)) continue;
+      var sp = kfValidPos(g.position);
+      if(sp && kfSegDist(sp, a, b) < 130) return true;
+    }
+    return false;
+  }
+
+  function kfName(p){
+    return '<span class="n ' + (p.team === 'CT' ? 'ct' : 'tr') + '">' + esc(p.nick) + '</span>';
+  }
+
+  function kfAdd(e){
+    var html = '';
+    if(e.killer){
+      html += kfName(e.killer);
+      if(e.assist) html += '<span class="plus">+</span>' + kfName(e.assist);
+      var src = e.weapon === 'inferno' ? ICONS_PATH + 'inferno.svg' : weaponIcon(e.weapon);
+      if(src) html += '<img class="w" src="' + src + '" alt="">';
+      if(e.blind) html += '<span class="mod" title="matou cego">' + KF_ICONS.blind + '</span>';
+      if(e.smoke) html += '<span class="mod" title="através da fumaça">' + KF_ICONS.smoke + '</span>';
+      if(e.hs) html += '<span class="mod" title="headshot">' + KF_ICONS.hs + '</span>';
+    } else {
+      html += '<span class="mod world" title="morreu sozinho">' + RH_ICONS.elimination + '</span>';
+    }
+    html += kfName(e.victim);
+
+    var feed = $('killfeed');
+    var row = document.createElement('div');
+    row.className = 'kf enter';
+    row.innerHTML = html;
+    [].forEach.call(row.querySelectorAll('img.w'), function(img){ img.onerror = function(){ img.remove(); }; });
+    feed.appendChild(row);
+    void row.offsetWidth;
+    row.classList.remove('enter');
+    while(feed.children.length > KF_MAX) feed.removeChild(feed.firstChild);
+    setTimeout(function(){
+      row.classList.add('leave');
+      setTimeout(function(){ if(row.parentNode) row.parentNode.removeChild(row); }, 400);
+    }, KF_TTL_MS);
+  }
+
+  function resetKillFeed(){
+    kfPrev = {}; kfPrimed = false; kfKills = []; kfDeaths = []; kfAssists = [];
+    kfLastFrags = {}; kfFragBooms = [];
+    $('killfeed').innerHTML = '';
+  }
+
+  // =====================================================================
   // HISTÓRICO DE ROUNDS DO HALF (aparece no tempo de compra)
   // =====================================================================
   // Vem do map.round_wins do GSI (o próprio jogo guarda), então está certo
@@ -844,7 +1232,7 @@
 
     var cols = 'grid-template-columns:78px repeat(' + n + ', 28px)';
     var html = '';
-    [['ct', sb.ct.score], ['tr', sb.t.score]].forEach(function(row){
+    [[LAYOUT.left, scoreOf(sb, LAYOUT.left).score], [LAYOUT.right, scoreOf(sb, LAYOUT.right).score]].forEach(function(row){
       var logo = teamLogo(row[0]);
       html += '<div class="rhRow" style="' + cols + '"><div class="rhHead">' +
         (logo ? '<img src="' + logo + '" alt="">' : '<span class="tg ' + (row[0] === 'ct' ? 'ctc' : 'trc') + '" style="color:var(--' + row[0] + ')">' + DEFAULT_TEAM[row[0]].tag + '</span>') +
@@ -878,18 +1266,89 @@
   };
   var currentTeams = { ct: null, tr: null }; // {name, logoUrl} ou null (= padrão)
 
+  // =====================================================================
+  // SÉRIE DE MAPAS (do veto) - painel + quadrados do placar
+  // =====================================================================
+  var currentSeries = null;
+  function normName(n){ return (n || '').trim().toLowerCase(); }
+
+  // 'A'/'B' do veto cujo nome é igual ao nome mostrado na HUD (control.html)
+  function seriesTeamByName(name){
+    if(!currentSeries) return null;
+    var n = normName(name);
+    if(n && n === normName(currentSeries.teamA)) return 'A';
+    if(n && n === normName(currentSeries.teamB)) return 'B';
+    return null;
+  }
+
+  // logo (se o time do veto tiver o mesmo nome de um time do control.html) ou nome
+  function seriesTeamHtml(who){
+    var name = who === 'A' ? currentSeries.teamA : currentSeries.teamB;
+    var sides = ['ct', 'tr'];
+    for(var i = 0; i < sides.length; i++){
+      var cfg = currentTeams[sides[i]];
+      if(cfg && cfg.logoUrl && normName(cfg.name) === normName(name)){
+        return '<img src="' + API_BASE + cfg.logoUrl + '" alt="" title="' + esc(name) + '">';
+      }
+    }
+    return '<span>' + esc(name) + '</span>';
+  }
+
+  function renderSeriesPanel(state){
+    var phase = (state.roundPhase || '').toLowerCase();
+    var sr = currentSeries;
+    var show = !!(sr && sr.maps && sr.maps.length && phase === 'freezetime');
+    $('stage').classList.toggle('showSeries', show);
+    if(!show) return;
+    var html = '<div class="spRow head"><span>MAPAS</span><span>PICK</span><span>VENCEDOR</span><span>PLACAR</span></div>';
+    sr.maps.forEach(function(m, i){
+      var live = sr.current === i;
+      var pick = m.pickedBy ? seriesTeamHtml(m.pickedBy) : '<span class="dec">DECISIVO</span>';
+      var winner = m.winner ? seriesTeamHtml(m.winner) : '';
+      var score = '<span class="dash">-</span>';
+      if(live) score = '<span class="liveTag">AO VIVO</span>';
+      else if(typeof m.scoreA === 'number' && typeof m.scoreB === 'number'){
+        // placar com o do vencedor primeiro (ex: 13:6)
+        var first = m.winner === 'B' ? m.scoreB : m.scoreA, second = m.winner === 'B' ? m.scoreA : m.scoreB;
+        score = '<span class="sc">' + first + ':' + second + '</span>';
+      }
+      html += '<div class="spRow' + (live ? ' live' : '') + '"><span class="mn">' + esc(m.name || m.id) + '</span>' +
+        '<span class="tm">' + pick + '</span><span class="tm">' + winner + '</span><span>' + score + '</span></div>';
+    });
+    var box = $('seriesPanel');
+    if(box.dataset.html !== html){ box.dataset.html = html; box.innerHTML = html; } // não recria à toa (logos piscariam)
+  }
+
   function applyTeams(teamsCfg, gsiNames){
     teamsCfg = teamsCfg || {};
     currentTeams.ct = teamsCfg.ct || null;
     currentTeams.tr = teamsCfg.t || null;
-    var bestOf = teamsCfg.bestOf || 0;
+    // formato da série: do veto (CS2MapVeto) se tiver; senão o antigo do control.html
+    var bestOf = currentSeries ? (currentSeries.bestOf || 0) : (teamsCfg.bestOf || 0);
     var mapsToWin = bestOf ? Math.ceil(bestOf / 2) : 0; // MD1=1, MD3=2, MD5=3, MD7=4
-    ['ct', 'tr'].forEach(function(side){
+    // pos = prefixo dos elementos da posição na tela ('ct' = esquerda,
+    // 'tr' = direita); side = lado cujos dados aparecem ali agora
+    [['ct', LAYOUT.left], ['tr', LAYOUT.right]].forEach(function(r){
+      var pos = r[0], side = r[1];
       var cfg = currentTeams[side];
 
-      // quadrados da série - só redesenha se mudou
-      var wins = Math.min(mapsToWin, (cfg && cfg.mapWins) || 0);
-      var seriesEl = $(side + 'Series');
+      // nome do painel > nome que o próprio jogo manda (torneios) > padrão
+      var gsiName = gsiNames[side];
+      if(gsiName === 'CT' || gsiName === 'T') gsiName = ''; // exportador usa isso quando não há nome
+      var name = (cfg && cfg.name) || gsiName || DEFAULT_TEAM[side].label;
+
+      // quadrados da série - mapas vencidos (da série do veto, pelo nome do
+      // time; ou o valor antigo do control.html) - só redesenha se mudou
+      var wins;
+      if(currentSeries){
+        var who = seriesTeamByName(name);
+        wins = who ? currentSeries.maps.filter(function(m){ return m.winner === who; }).length : 0;
+      } else {
+        wins = (cfg && cfg.mapWins) || 0;
+      }
+      wins = Math.min(mapsToWin, wins);
+      var seriesEl = $(pos + 'Series');
+      seriesEl.className = 'series ' + side;
       var seriesKey = mapsToWin + '/' + wins;
       if(seriesEl.dataset.key !== seriesKey){
         seriesEl.dataset.key = seriesKey;
@@ -902,19 +1361,15 @@
         }
       }
 
-      // nome do painel > nome que o próprio jogo manda (torneios) > padrão
-      var gsiName = gsiNames[side];
-      if(gsiName === 'CT' || gsiName === 'T') gsiName = ''; // exportador usa isso quando não há nome
-      var name = (cfg && cfg.name) || gsiName || DEFAULT_TEAM[side].label;
-      var lbl = $(side + 'Label');
+      var lbl = $(pos + 'Label');
       if(lbl.textContent !== name) lbl.textContent = name;
 
       // logo no lugar do "CT"/"TR" - só mexe no DOM se mudou (senão a
       // imagem recarregaria a cada atualização)
-      var tag = $(side + 'Tag');
+      var tag = $(pos + 'Tag');
       var logo = cfg && cfg.logoUrl ? API_BASE + cfg.logoUrl : '';
-      if(tag.dataset.logo === logo) return;
-      tag.dataset.logo = logo;
+      if(tag.dataset.logo === logo + '|' + side) return;
+      tag.dataset.logo = logo + '|' + side;
       if(logo){
         tag.className = 'tag logo ' + side;
         tag.innerHTML = '';
@@ -929,8 +1384,53 @@
     });
   }
 
+  // ---- popup de fim de jogo ----
+  var MATCH_WIN_MS = 14000;     // quanto tempo fica na tela
+  var matchWinKey = null, matchWinTimer = null;
+  function renderMatchWin(state){
+    var box = $('matchWin');
+    if((state.phase || '').toLowerCase() !== 'gameover'){ matchWinKey = null; return; }
+    var sb = state.scoreboard;
+    var key = (state.map || '') + '|' + sb.ct.score + '-' + sb.t.score;
+    if(key === matchWinKey) return; // já mostrado pra este fim de jogo
+    matchWinKey = key;
+
+    var side = sb.ct.score === sb.t.score ? null : (sb.ct.score > sb.t.score ? 'ct' : 'tr');
+    var cfg = side && currentTeams[side];
+    var name = side ? ((cfg && cfg.name) || DEFAULT_TEAM[side].full) : 'EMPATE';
+    var win = side ? scoreOf(sb, side).score : sb.ct.score;
+    var lose = side ? scoreOf(sb, side === 'ct' ? 'tr' : 'ct').score : sb.t.score;
+
+    var letters = Array.prototype.map.call(name, function(ch, i){
+      return '<span class="l" style="--i:' + i + '">' + (ch === ' ' ? '&nbsp;' : esc(ch)) + '</span>';
+    }).join('');
+    var conf = '';
+    for(var c = 0; c < 70; c++){
+      conf += '<i style="left:' + (Math.random() * 100).toFixed(1) + '%;animation-duration:' + (2.6 + Math.random() * 2.4).toFixed(2) +
+        's;animation-delay:' + (0.9 + Math.random() * 2.2).toFixed(2) + 's;--r:' + Math.round(360 + Math.random() * 720) * (Math.random() < .5 ? -1 : 1) + 'deg"></i>';
+    }
+    box.className = 'matchWin ' + (side || 'ct');
+    box.innerHTML = '<div class="mwGlow"></div><div class="mwConf">' + conf + '</div>' +
+      '<div class="mwPanel">' +
+        '<div class="mwLabel">' + (side ? 'Venceu o mapa' : 'Fim de jogo') + '</div>' +
+        (cfg && cfg.logoUrl ? '<img class="mwLogo" src="' + API_BASE + cfg.logoUrl + '" alt="">' : '') +
+        // nomes longos diminuem pra caber no painel
+        '<div class="mwName" style="font-size:' + (name.length > 20 ? 70 : name.length > 15 ? 90 : 120) + 'px">' + letters + '</div>' +
+        '<div class="mwScore"><b>' + win + '</b> : ' + lose + '</div>' +
+      '</div>';
+    void box.offsetWidth;            // reinicia as animações
+    box.classList.add('show');
+    $('roundWin').classList.remove('show'); // não sobrepõe com o popup de round
+    clearTimeout(matchWinTimer);
+    matchWinTimer = setTimeout(function(){
+      box.classList.remove('show'); box.classList.add('hide');
+      setTimeout(function(){ if(box.classList.contains('hide')){ box.className = 'matchWin'; box.innerHTML = ''; } }, 950);
+    }, MATCH_WIN_MS);
+  }
+
   var roundWinTimer = null;
   function showRoundWinner(side, roundNumber){
+    if($('matchWin').classList.contains('show')) return;
     var cfg = currentTeams[side];
     var box = $('roundWin');
     $('rwName').textContent = (cfg && cfg.name) || DEFAULT_TEAM[side].full;
@@ -952,6 +1452,38 @@
 
   // Loss bonus do CS2 se o time perder o próximo round: $1400 + $500 por
   // derrota seguida, até $3400.
+  // Card de compra: utilitárias do time + loss bonus (só no freezetime)
+  var BUY_UTILS = [
+    { key: 'smoke', icon: 'smokegrenade', names: ['weapon_smokegrenade'] },
+    { key: 'flash', icon: 'flashbang',    names: ['weapon_flashbang'] },
+    { key: 'he',    icon: 'hegrenade',    names: ['weapon_hegrenade'] },
+    { key: 'fire',  icon: null,           names: ['weapon_molotov', 'weapon_incgrenade'] } // ícone depende do lado
+  ];
+  function renderBuyInfo(state, ctPlayers, tPlayers){
+    var show = (state.roundPhase || '').toLowerCase() === 'freezetime' && (ctPlayers.length || tPlayers.length);
+    [[LAYOUT.left, 'buyInfoCT', ctPlayers, 'left'], [LAYOUT.right, 'buyInfoT', tPlayers, 'right']].forEach(function(r){
+      var box = $(r[1]);
+      box.className = 'buyInfo ' + r[3] + ' ' + r[0] + (show ? ' show' : '');
+      r[3] = scoreOf(state.scoreboard, r[0]);
+      if(!show) return;
+      var counts = {};
+      r[2].forEach(function(p){
+        if(p.isDead) return;
+        (p.utility || []).forEach(function(u){
+          BUY_UTILS.forEach(function(t){ if(t.names.indexOf(u) !== -1) counts[t.key] = (counts[t.key] || 0) + 1; });
+        });
+      });
+      var utils = BUY_UTILS.map(function(t){
+        var icon = t.icon || (r[0] === 'ct' ? 'incgrenade' : 'molotov');
+        var n = counts[t.key] || 0;
+        return '<span class="u' + (n ? '' : ' zero') + '"><img class="ic" src="' + ICONS_PATH + icon + '.svg" alt="">' + n + '</span>';
+      }).join('');
+      var html = '<div class="utils">' + utils + '</div>' +
+        '<div class="lb"><span class="k">Loss bonus</span><span class="v">' + fmtMoney(lossBonus(r[3].consecutiveRoundLosses)) + '</span></div>';
+      if(box.dataset.html !== html){ box.dataset.html = html; box.innerHTML = html; } // não recria à toa (ícones piscariam)
+    });
+  }
+
   function lossBonus(losses){ return 1400 + 500 * Math.min(Math.max(losses || 0, 0), 4); }
   function fmtMoney(v){ return '$' + (v || 0).toLocaleString('en-US'); }
   function teamName(side){ var c = currentTeams[side]; return (c && c.name) || DEFAULT_TEAM[side].label; }
@@ -975,13 +1507,15 @@
     var sb = state.scoreboard;
 
     // coaches (só aparece quem tem nome definido no control.html)
-    [['ct', 'pCoachCT'], ['tr', 'pCoachT']].forEach(function(r){
+    [[LAYOUT.left, 'pCoachCT'], [LAYOUT.right, 'pCoachT']].forEach(function(r){
       var c = currentTeams[r[0]];
+      $(r[1]).className = 'pCoach ' + r[0] + (r[1] === 'pCoachT' ? ' right' : '');
       $(r[1]).innerHTML = c && c.coach ? '<span class="ck">COACH</span><span class="cn">' + esc(c.coach) + '</span>' : '';
     });
 
     // valor de equipamento / loss bonus / timeouts restantes
-    [['ct', 'pStatsCT', ctPlayers, sb.ct], ['tr', 'pStatsT', tPlayers, sb.t]].forEach(function(r){
+    [[LAYOUT.left, 'pStatsCT', ctPlayers, scoreOf(sb, LAYOUT.left), false], [LAYOUT.right, 'pStatsT', tPlayers, scoreOf(sb, LAYOUT.right), true]].forEach(function(r){
+      $(r[1]).className = 'pBox pStats ' + r[0];
       var equip = r[2].reduce(function(sum, p){ return sum + (p.equipmentValue || 0); }, 0);
       var left = r[3].timeoutsRemaining || 0;
       var total = Math.max(TIMEOUTS_PER_TEAM, left);
@@ -992,19 +1526,21 @@
         '<div class="pStat"><span class="k">Loss bonus</span><span class="v">' + fmtMoney(lossBonus(r[3].consecutiveRoundLosses)) + '</span></div>',
         '<div class="pStat"><span class="k">Timeouts</span><span class="pTimeouts">' + boxes + '</span></div>'
       ];
-      if(r[0] === 'tr') cells.reverse(); // espelhado do lado direito
+      if(r[4]) cells.reverse(); // espelhado do lado direito
       $(r[1]).innerHTML = cells.join('');
     });
 
     // centro do cabeçalho: logo NOME  6 vs 3  NOME logo
-    var lc = teamLogo('ct'), lt = teamLogo('tr');
+    var L = LAYOUT.left, R = LAYOUT.right;
+    var lc = teamLogo(L), lt = teamLogo(R);
     $('pCenter').innerHTML =
-      (lc ? '<img src="' + lc + '">' : '') + '<span class="tn ctc">' + esc(teamName('ct')) + '</span>' +
-      '<span class="sc">' + sb.ct.score + '</span><span class="vs">VS</span><span class="sc">' + sb.t.score + '</span>' +
-      '<span class="tn trc">' + esc(teamName('tr')) + '</span>' + (lt ? '<img src="' + lt + '">' : '');
+      (lc ? '<img src="' + lc + '">' : '') + '<span class="tn ' + L + 'c">' + esc(teamName(L)) + '</span>' +
+      '<span class="sc">' + scoreOf(sb, L).score + '</span><span class="vs">VS</span><span class="sc">' + scoreOf(sb, R).score + '</span>' +
+      '<span class="tn ' + R + 'c">' + esc(teamName(R)) + '</span>' + (lt ? '<img src="' + lt + '">' : '');
 
     // tabelas de jogadores
-    [['pTableCT', ctPlayers], ['pTableT', tPlayers]].forEach(function(r){
+    [['pTableCT', ctPlayers, LAYOUT.left, 'left'], ['pTableT', tPlayers, LAYOUT.right, 'right']].forEach(function(r){
+      $(r[0]).className = 'pTable ' + r[2] + ' ' + r[3];
       var rows = r[1].slice().sort(function(a, b){ return a.hudIndex - b.hudIndex; });
       $(r[0]).innerHTML = rows.map(function(p){
         var eq = '';
@@ -1061,6 +1597,31 @@
   function renderCrosshair(player){
     var on = !!player && player.health > 0 && showsCrosshair(player.activeWeapon);
     $('crosshair').classList.toggle('show', on);
+  }
+
+  // Quantos jogadores vivos em cada time (usa a "morte grudenta" do round,
+  // então não oscila se a vida piscar entre pacotes)
+  function renderAlive(state, ctPlayers, tPlayers){
+    var phase = (state.roundPhase || '').toLowerCase();
+    var box = $('alive');
+    var hide = !ctPlayers.length && !tPlayers.length || phase === 'freezetime';
+    box.classList.toggle('hide', hide);
+    if(hide) return;
+    var sides = $('alive').querySelectorAll('.side');
+    sides[0].className = 'side ' + LAYOUT.left;
+    sides[1].className = 'side ' + LAYOUT.right;
+    [['CT', ctPlayers], ['T', tPlayers]].forEach(function(r){ // 'CT' = esquerda, 'T' = direita
+      var total = Math.max(5, r[1].length);
+      var alive = r[1].filter(function(p){ return !p.isDead; }).length;
+      $('alive' + r[0]).textContent = alive;
+      var pips = '';
+      // vivos ficam do lado de dentro (perto do centro)
+      for(var i = 0; i < total; i++){
+        var on = r[0] === 'CT' ? i >= total - alive : i < alive;
+        pips += '<i class="' + (on ? 'on' : '') + '"></i>';
+      }
+      $('alivePips' + r[0]).innerHTML = pips;
+    });
   }
 
   function renderSpectator(player){
@@ -1576,13 +2137,20 @@
 
   function render(state){
     fillPartialState(state);
+    updateKillFeed(state);
+    updateLayout(state.players || [], state);
     var ct = state.scoreboard.ct, t = state.scoreboard.t;
 
-    $('scoreCT').textContent = ct.score;
-    $('scoreT').textContent = t.score;
-    $('scoreCT').className = ct.score >= t.score ? 'lead' : 'trail';
-    $('scoreT').className = t.score >= ct.score ? 'lead' : 'trail';
+    // placar: esquerda = time A, direita = time B (não importa o lado)
+    var scoreL = scoreOf(state.scoreboard, LAYOUT.left).score, scoreR = scoreOf(state.scoreboard, LAYOUT.right).score;
+    $('scoreCT').textContent = scoreL;
+    $('scoreT').textContent = scoreR;
+    $('scoreCT').className = scoreL >= scoreR ? 'lead' : 'trail';
+    $('scoreT').className = scoreR >= scoreL ? 'lead' : 'trail';
+    currentSeries = state.series || null;
     applyTeams(state.teams, { ct: ct.teamName, tr: t.teamName });
+    renderSeriesPanel(state);
+    renderMatchWin(state);
     $('mapName').textContent = mapDisplayName(state.map);
     // map.round do GSI = rounds já jogados; o round em andamento é o próximo
     // (no fim da partida mostra o último jogado).
@@ -1703,16 +2271,19 @@
       players.push(ghost);
     }
 
-    var ctPlayers = players.filter(function(p){ return p.team === 'CT' && typeof p.hudIndex === 'number'; });
-    var tPlayers  = players.filter(function(p){ return p.team === 'T' && typeof p.hudIndex === 'number'; });
+    // esquerda (slots 0-4) = time A, direita (5-9) = time B
+    var ctPlayers = players.filter(function(p){ return typeof p.hudIndex === 'number' && p.hudIndex <= 4; });
+    var tPlayers  = players.filter(function(p){ return typeof p.hudIndex === 'number' && p.hudIndex >= 5; });
 
-    renderRoster($('rosterCT'), ctPlayers, 'ct', 0);
-    renderRoster($('rosterT'), tPlayers, 'tr', 5);
+    renderRoster($('rosterCT'), ctPlayers, LAYOUT.left, 0);
+    renderRoster($('rosterT'), tPlayers, LAYOUT.right, 5);
 
     renderRadar(ctPlayers.concat(tPlayers), state.map, state.bomb);
     if(state.map) saveDeaths(state);
     updateUtility(state.grenades || [], state.map);
     renderSpectator(state.spectatedPlayer || null);
+    renderAlive(state, ctPlayers, tPlayers);
+    renderBuyInfo(state, ctPlayers, tPlayers);
     renderPause(state, ctPlayers, tPlayers);
   }
 
@@ -1726,6 +2297,8 @@
   // Detectamos essa lacuna e zeramos tudo sozinhos.
   function resetVisuals(){
     $('stage').classList.remove('paused');
+    $('stage').classList.remove('showSeries');
+    $('buyInfoCT').classList.remove('show'); $('buyInfoT').classList.remove('show');
     // placar / cabeçalho
     $('scoreCT').textContent = '0'; $('scoreT').textContent = '0';
     $('scoreCT').className = ''; $('scoreT').className = '';
@@ -1736,8 +2309,9 @@
     document.querySelector('.spine-main').classList.remove('bomb-planted');
     document.querySelector('.spine-main').classList.remove('defusing');
 
-    // histórico de rounds
+    // histórico de rounds + kill feed
     lastCT = null; lastT = null;
+    resetKillFeed();
     renderRoundHistory(null);
 
     // timers estimados

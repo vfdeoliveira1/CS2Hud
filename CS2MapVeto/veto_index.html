@@ -39,6 +39,11 @@
     font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase;padding:10px 12px;outline:none}
   .names .b input{border-left-color:var(--b)}
   .names input:focus{border-color:var(--bone)}
+  .names input[readonly]{opacity:.9;cursor:default}
+  .fromCtl{display:flex;align-items:center;gap:12px;margin:-12px 0 24px;flex-wrap:wrap;
+    font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel)}
+  .fromCtl.ok{color:var(--pick)}
+  .fromCtl button{padding:8px 12px;font-size:11px}
   .formats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
   .formats button{padding:22px 10px;font-size:26px;font-family:'Anton',sans-serif;font-weight:400;letter-spacing:.06em}
   .formats button small{display:block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--steel);margin-top:6px;text-transform:none}
@@ -122,6 +127,25 @@
   .bans div b{font-family:'Anton',sans-serif;font-weight:400;font-size:22px;letter-spacing:.05em;text-transform:uppercase;margin-right:6px}
   .order{list-style:none;counter-reset:o;display:flex;flex-direction:column;gap:6px}
   .order li{counter-increment:o;background:var(--panel);border:1px solid var(--line);padding:9px 14px;font-size:19px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+  /* gestão da série (placar, vencedor, mapa ao vivo) - vai pra HUD */
+  .hudStatus{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;margin-left:10px;text-transform:none}
+  .hudStatus.ok{color:var(--pick)} .hudStatus.err{color:var(--ban)}
+  .manage{display:flex;flex-direction:column;gap:8px}
+  .mRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);padding:10px 14px}
+  .mRow.live{border-color:var(--pick)}
+  .mRow .mn2{font-family:'Anton',sans-serif;font-size:22px;letter-spacing:.05em;text-transform:uppercase;min-width:150px}
+  .mRow .mn2 small{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--steel)}
+  .mRow .tbtn{font-family:'Barlow Condensed',sans-serif;font-size:19px;letter-spacing:.02em;text-transform:uppercase;padding:8px 14px;min-width:120px}
+  .mRow .tbtn.a.win{background:var(--a);border-color:var(--a);color:var(--bg)}
+  .mRow .tbtn.b.win{background:var(--b);border-color:var(--b);color:var(--bg)}
+  .mRow input{width:64px;background:var(--panel2);border:1px solid var(--line);color:var(--bone);text-align:center;
+    font-family:'Anton',sans-serif;font-size:24px;padding:4px 6px;outline:none}
+  .mRow input:focus{border-color:var(--bone)}
+  .mRow .colon{font-family:'Anton',sans-serif;font-size:22px;color:var(--steel)}
+  .mRow .liveBtn{margin-left:auto}
+  .mRow .liveBtn.on{background:var(--pick);border-color:var(--pick);color:var(--bg)}
+  .manageHelp{color:var(--steel);font-size:17px;margin-top:8px}
+
   .order li::before{content:counter(o);font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel);width:18px}
   .order .k{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.1em;padding:3px 7px;color:var(--bg)}
   .order .k.ban{background:var(--ban)} .order .k.pick{background:var(--pick)} .order .k.dec{background:var(--bone)}
@@ -136,6 +160,10 @@
     <div class="names">
       <div><label for="nameA">Time A (começa)</label><input id="nameA" maxlength="30" placeholder="TIME A" autocomplete="off"></div>
       <div class="b"><label for="nameB">Time B</label><input id="nameB" maxlength="30" placeholder="TIME B" autocomplete="off"></div>
+    </div>
+    <div class="fromCtl" id="fromCtl">
+      <span id="fromCtlText">Buscando os times do control.html…</span>
+      <button type="button" id="swapAB" class="hidden">Trocar A ⇄ B</button>
     </div>
     <label>Formato</label>
     <div class="formats" id="formats">
@@ -173,6 +201,11 @@
     </div>
     <h2>Mapas da série</h2>
     <div class="series" id="resSeries"></div>
+    <h2>Série na HUD <span class="hudStatus" id="hudStatus"></span></h2>
+    <div class="manage" id="resManage"></div>
+    <p class="manageHelp">Digite o placar final de cada mapa (o vencedor é marcado sozinho, ou clique no nome do time) e marque o mapa
+      que está sendo jogado com <b>AO VIVO</b>. Tudo vai direto pra HUD (o CS2HudExporter precisa estar rodando). Use nos times os
+      mesmos nomes do control.html, pra HUD ligar a logo e os quadrados da série.</p>
     <h2>Banidos</h2>
     <div class="bans" id="resBans"></div>
     <h2>Ordem completa</h2>
@@ -215,7 +248,8 @@
   // ESTADO
   // =====================================================================
   // actions: [{ team:'A'|'B', type:'ban'|'pick', map:id, side:{team, side:'CT'|'TR'} }]
-  var state = { bo: 0, nameA: '', nameB: '', started: false, actions: [] };
+  var state = { bo: 0, nameA: '', nameB: '', started: false, actions: [], results: {}, current: -1 };
+  var API_BASE = 'http://localhost:5000'; // CS2HudExporter
 
   var $ = function(id){ return document.getElementById(id); };
   function esc(t){ var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
@@ -229,7 +263,11 @@
   function load(){
     try {
       var s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-      if(s && FLOWS[s.bo] && Array.isArray(s.actions)) state = s;
+      if(s && FLOWS[s.bo] && Array.isArray(s.actions)){
+        state = s;
+        state.results = state.results || {};
+        if(typeof state.current !== 'number') state.current = -1;
+      }
     } catch(e){}
   }
 
@@ -273,10 +311,42 @@
   }
 
   function render(){
-    if(!state.started){ renderSetup(); show('setupScreen'); return; }
+    if(!state.started){ renderSetup(); show('setupScreen'); clearSeries(); return; }
     var st = status();
-    if(st.kind === 'done'){ renderResult(); show('resultScreen'); return; }
+    if(st.kind === 'done'){ renderResult(); renderManage(); show('resultScreen'); syncSeries(); return; }
+    clearSeries(); // veto voltou a ficar incompleto: tira a série da HUD
     renderVeto(st); show('vetoScreen');
+  }
+
+  // ---- nomes dos times vindos do control.html (via exportador) ----
+  // Time A = time que está de CT no control.html, Time B = de TR (o botão
+  // "Trocar A ⇄ B" inverte). Assim o nome no veto é sempre igual ao da HUD
+  // (é por ele que a HUD liga logo e quadrados da série).
+  var ctlNames = null; // { ct, t } ou null (exportador offline / sem nomes)
+  function applyCtlNames(){
+    var locked = !!ctlNames;
+    if(locked){
+      state.nameA = state.swapAB ? ctlNames.t : ctlNames.ct;
+      state.nameB = state.swapAB ? ctlNames.ct : ctlNames.t;
+      save();
+    }
+    $('nameA').readOnly = locked;
+    $('nameB').readOnly = locked;
+    $('swapAB').classList.toggle('hidden', !locked);
+    $('fromCtl').className = 'fromCtl' + (locked ? ' ok' : '');
+    $('fromCtlText').textContent = locked
+      ? '✓ Nomes vindos do control.html (Time A = time de ' + (state.swapAB ? 'TR' : 'CT') + ' lá)'
+      : 'Sem times no control.html (ou exportador fechado): digite os nomes - use os mesmos do control.html';
+  }
+  function loadCtlNames(){
+    fetch(API_BASE + '/api/teams', { cache: 'no-store' })
+      .then(function(res){ return res.ok ? res.json() : null; })
+      .then(function(d){
+        var ct = d && d.ct && d.ct.name, t = d && d.t && d.t.name;
+        ctlNames = ct && t ? { ct: ct, t: t } : null;
+      })
+      .catch(function(){ ctlNames = null; })
+      .then(function(){ if(!state.started){ applyCtlNames(); renderSetup(); } });
   }
 
   function renderSetup(){
@@ -378,6 +448,102 @@
     $('resOrder').innerHTML = order.join('');
   }
 
+  // =====================================================================
+  // SÉRIE NA HUD (placar final, vencedor e mapa ao vivo)
+  // =====================================================================
+  // mapas da série na ordem: picks + decisivo
+  function seriesMaps(){
+    var list = state.actions.filter(function(a){ return a.type === 'pick'; })
+      .map(function(a){ return { id: a.map, pickedBy: a.team }; });
+    var dec = deciderId();
+    if(dec) list.push({ id: dec, pickedBy: '' });
+    return list;
+  }
+  function resultOf(id){
+    if(!state.results[id]) state.results[id] = { a: '', b: '', winner: '' };
+    return state.results[id];
+  }
+  function toScore(v){ var n = parseInt(v, 10); return isNaN(n) || n < 0 ? null : n; }
+
+  function renderManage(){
+    var maps = seriesMaps();
+    if(state.current >= maps.length) state.current = -1;
+    var box = $('resManage');
+    box.innerHTML = '';
+    maps.forEach(function(m, i){
+      var r = resultOf(m.id);
+      var row = document.createElement('div');
+      row.className = 'mRow' + (state.current === i ? ' live' : '');
+      row.innerHTML =
+        '<div class="mn2"><small>MAPA ' + (i + 1) + (m.pickedBy ? ' · pick ' + esc(teamName(m.pickedBy)) : ' · decisivo') + '</small>' + esc(mapById(m.id).name) + '</div>' +
+        '<button type="button" class="tbtn a' + (r.winner === 'A' ? ' win' : '') + '" title="Marcar como vencedor">' + esc(teamName('A')) + '</button>' +
+        '<input type="number" min="0" max="99" class="sa" value="' + esc(r.a) + '" placeholder="-">' +
+        '<span class="colon">:</span>' +
+        '<input type="number" min="0" max="99" class="sb" value="' + esc(r.b) + '" placeholder="-">' +
+        '<button type="button" class="tbtn b' + (r.winner === 'B' ? ' win' : '') + '" title="Marcar como vencedor">' + esc(teamName('B')) + '</button>' +
+        '<button type="button" class="liveBtn' + (state.current === i ? ' on' : '') + '">● Ao vivo</button>';
+
+      function setWinner(w){
+        r.winner = w;
+        // mapa ao vivo terminou: o "ao vivo" passa pro próximo sem vencedor
+        if(w && state.current === i){
+          state.current = -1;
+          for(var j = i + 1; j < maps.length; j++){ if(!resultOf(maps[j].id).winner){ state.current = j; break; } }
+        }
+      }
+      function onScore(){
+        r.a = row.querySelector('.sa').value;
+        r.b = row.querySelector('.sb').value;
+        var a = toScore(r.a), b = toScore(r.b);
+        if(a !== null && b !== null && a !== b){
+          var w = a > b ? 'A' : 'B';
+          if(r.winner !== w){ setWinner(w); save(); renderManage(); syncSeries(); return; }
+        }
+        save(); syncSeries();
+      }
+      row.querySelector('.sa').addEventListener('change', onScore);
+      row.querySelector('.sb').addEventListener('change', onScore);
+      row.querySelector('.tbtn.a').addEventListener('click', function(){ setWinner(r.winner === 'A' ? '' : 'A'); save(); renderManage(); syncSeries(); });
+      row.querySelector('.tbtn.b').addEventListener('click', function(){ setWinner(r.winner === 'B' ? '' : 'B'); save(); renderManage(); syncSeries(); });
+      row.querySelector('.liveBtn').addEventListener('click', function(){
+        state.current = state.current === i ? -1 : i;
+        save(); renderManage(); syncSeries();
+      });
+      box.appendChild(row);
+    });
+  }
+
+  // envio pra HUD (com um pequeno atraso, pra juntar alterações seguidas)
+  // true no início: se a página abrir com o veto incompleto, tira da HUD uma série antiga
+  var syncTimer = null, seriesOnHud = true;
+  function hudStatus(ok, text){
+    var el = $('hudStatus');
+    el.className = 'hudStatus ' + (ok ? 'ok' : 'err');
+    el.textContent = text;
+  }
+  function syncSeries(){
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(function(){
+      var body = {
+        bestOf: state.bo, teamA: teamName('A'), teamB: teamName('B'), current: state.current,
+        maps: seriesMaps().map(function(m){
+          var r = resultOf(m.id);
+          return { id: m.id, name: mapById(m.id).name, pickedBy: m.pickedBy,
+                   scoreA: toScore(r.a), scoreB: toScore(r.b), winner: r.winner };
+        })
+      };
+      fetch(API_BASE + '/api/series', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function(res){ if(!res.ok) throw new Error(); seriesOnHud = true; hudStatus(true, '✓ enviado pra HUD'); })
+        .catch(function(){ hudStatus(false, '✗ exportador offline (localhost:5000)'); });
+    }, 250);
+  }
+  function clearSeries(){
+    clearTimeout(syncTimer);
+    if(!seriesOnHud) return;
+    seriesOnHud = false;
+    fetch(API_BASE + '/api/series', { method: 'DELETE' }).catch(function(){});
+  }
+
   function seriesCard(n, id, isDecider, info){
     return '<div class="sMap' + (isDecider ? ' decider' : '') + '"><div class="img" data-map="' + id + '"><span class="num">MAPA ' + n + '</span></div>' +
       '<div class="body"><div class="mn">' + esc(mapById(id).name) + '</div><div class="info">' + info + '</div></div></div>';
@@ -395,6 +561,9 @@
   // =====================================================================
   // EVENTOS
   // =====================================================================
+  $('swapAB').addEventListener('click', function(){ state.swapAB = !state.swapAB; applyCtlNames(); renderSetup(); });
+  // atualiza enquanto está na tela inicial (se mudar algo no control.html)
+  setInterval(function(){ if(!state.started) loadCtlNames(); }, 3000);
   $('nameA').addEventListener('input', function(){ state.nameA = this.value.trim(); save(); });
   $('nameB').addEventListener('input', function(){ state.nameB = this.value.trim(); save(); });
   [].forEach.call($('formats').children, function(b){
@@ -402,7 +571,7 @@
   });
   $('startBtn').addEventListener('click', function(){
     if(!FLOWS[state.bo]) return;
-    state.started = true; state.actions = [];
+    state.started = true; state.actions = []; state.results = {}; state.current = -1;
     save(); render();
   });
 
@@ -418,7 +587,8 @@
 
   function restart(){
     if(!confirm('Recomeçar o veto do zero? (os nomes e o formato continuam)')) return;
-    state.started = false; state.actions = [];
+    state.started = false; state.actions = []; state.results = {}; state.current = -1;
+    seriesOnHud = true; // garante que a HUD seja limpa
     save(); render();
   }
   $('restartBtn').addEventListener('click', restart);
@@ -426,6 +596,7 @@
 
   load();
   render();
+  loadCtlNames();
 })();
 </script>
 </body>
