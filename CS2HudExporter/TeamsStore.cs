@@ -29,6 +29,13 @@ public class TeamsDto
 
     // true = mostra a tela de pausa agora, mesmo sem pausa/timeout no jogo
     public bool ForcePause { get; set; }
+
+    // Modo X1 (1 contra 1): um card por jogador nos cantos, nome do jogador
+    // no placar. X1Radar / X1Series ligam o radar e a série (picks e bans)
+    // nesse modo.
+    public bool X1 { get; set; }
+    public bool X1Radar { get; set; } = true;
+    public bool X1Series { get; set; } = true;
 }
 
 /// <summary>
@@ -38,6 +45,9 @@ public class TeamsFile
 {
     public int BestOf { get; set; }
     public bool ForcePause { get; set; }
+    public bool X1 { get; set; }
+    public bool X1Radar { get; set; } = true;
+    public bool X1Series { get; set; } = true;
     public List<StoredTeam> Teams { get; set; } = new();
 }
 
@@ -69,6 +79,9 @@ public class TeamsStore
     private List<StoredTeam> _teams = new();
     private int _bestOf;
     private bool _forcePause;
+    private bool _x1;
+    private bool _x1Radar = true;
+    private bool _x1Series = true;
     private static readonly JsonSerializerOptions FileJson = new() { WriteIndented = true };
 
     public TeamsStore(string path)
@@ -90,6 +103,9 @@ public class TeamsStore
                     _teams = file.Teams ?? new();
                     _bestOf = file.BestOf;
                     _forcePause = file.ForcePause;
+                    _x1 = file.X1;
+                    _x1Radar = file.X1Radar;
+                    _x1Series = file.X1Series;
                 }
             }
         }
@@ -166,6 +182,9 @@ public class TeamsStore
             _teams = new();
             _bestOf = input.BestOf is 1 or 3 or 5 or 7 ? input.BestOf : 0;
             _forcePause = input.ForcePause;
+            _x1 = input.X1;
+            _x1Radar = input.X1Radar;
+            _x1Series = input.X1Series;
             AddTeam(input.CT, "CT", players);
             AddTeam(input.T, "T", players);
             Save();
@@ -194,6 +213,9 @@ public class TeamsStore
             _teams = new();
             _bestOf = 0;
             _forcePause = false;
+            _x1 = false;
+            _x1Radar = true;
+            _x1Series = true;
             Save();
         }
     }
@@ -255,7 +277,7 @@ public class TeamsStore
 
     private TeamsDto ToDto(bool includeLogoData)
     {
-        var dto = new TeamsDto { BestOf = _bestOf, ForcePause = _forcePause };
+        var dto = new TeamsDto { BestOf = _bestOf, ForcePause = _forcePause, X1 = _x1, X1Radar = _x1Radar, X1Series = _x1Series };
         foreach (var team in _teams)
         {
             var info = new TeamInfoDto
@@ -276,7 +298,7 @@ public class TeamsStore
     {
         try
         {
-            File.WriteAllText(_path, JsonSerializer.Serialize(new TeamsFile { BestOf = _bestOf, ForcePause = _forcePause, Teams = _teams }, FileJson));
+            File.WriteAllText(_path, JsonSerializer.Serialize(new TeamsFile { BestOf = _bestOf, ForcePause = _forcePause, X1 = _x1, X1Radar = _x1Radar, X1Series = _x1Series, Teams = _teams }, FileJson));
         }
         catch (Exception ex)
         {

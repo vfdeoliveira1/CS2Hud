@@ -20,6 +20,7 @@ A arquitetura é simples:
 ```text
 CS2Hud/
 ├── README.md
+├── iniciar.bat
 ├── CS2Hud/
 │   ├── hud.html
 │   ├── control.html
@@ -41,13 +42,36 @@ CS2Hud/
 ## Requisitos
 
 - Counter-Strike 2 instalado
-- .NET 8 SDK
+- **Node.js LTS** (recomendado, https://nodejs.org) — ou .NET 8 SDK
 - Navegador para abrir a HUD
 - Opcional: OBS para usar a HUD como overlay transparente
 
 ## Como rodar
 
+### Atalho: `iniciar.bat` (Windows)
+
+Dê dois cliques em `iniciar.bat`, na raiz do projeto. Ele:
+
+1. roda o `dotnet restore` do exportador (só se não tiver Node.js);
+2. abre o exportador numa janela própria ("CS2 HUD Exporter", que reinicia sozinho se cair; feche essa janela para parar);
+3. quando a API responder, abre no Google Chrome a HUD (`hud.html`), o painel (`control.html`) e o veto (`CS2MapVeto/index.html`). Sem Chrome instalado, usa o navegador padrão.
+
+Com Node.js, as páginas abrem por endereço http (o exportador serve as pastas):
+
+- HUD: `http://localhost:5000/hud/hud.html`
+- Painel: `http://localhost:5000/hud/control.html`
+- Veto: `http://localhost:5000/veto/index.html`
+
+**No OBS**, adicione a HUD como Fonte de navegador com **"Arquivo local" desmarcado** e a URL `http://localhost:5000/hud/hud.html`, largura 1920 e altura 1080. Como arquivo local, o OBS não toca o vídeo das câmeras do VDO.Ninja dentro da HUD. Ative também, nas configurações do OBS (Avançado), a aceleração de hardware da fonte de navegador.
+
+Ou, passo a passo:
+
 ### 1) Iniciar o exporter
+
+O exportador existe em duas versões que fazem exatamente a mesma coisa:
+
+- **Node.js (`CS2HudExporter/exporter.js`)** — recomendada. Não compila nada, então o **Controle Inteligente de Aplicativos** do Windows não bloqueia (o erro "Uma política de Controle de Aplicativo bloqueou este arquivo" é da DLL do .NET). Instale o Node.js LTS e rode `CS2HudExporter/run.bat` (ou `node exporter.js` dentro da pasta). Não precisa de `npm install`.
+- **.NET 8 (`Program.cs`)** — usada pelo `run.bat` só se o Node não estiver instalado:
 
 Abra o terminal na pasta do projeto e execute:
 
@@ -126,6 +150,46 @@ Preencha o nome e a logo do time que está de **CT agora** e do que está de **T
 - **Forçar tela de pausa**: mostra a tela de pausa agora. Na pausa técnica e no timeout do jogo ela aparece sozinha (espectando), com valor de equipamento, loss bonus, timeouts restantes, armas/granadas/dinheiro de cada jogador e a contagem do timeout.
 - **Padrão** volta para COUNTER / TERRORIST com os ícones CT e TR, sem série.
 - A configuração fica salva em `CS2HudExporter/teams.json` (não vai para o git).
+
+### Modo X1 (1 contra 1)
+
+No `control.html`, marque **Modo X1 (1 contra 1)** e clique em **Salvar**:
+
+- os 5 cards de cada lado e o painel "espectando" dão lugar a **um card por jogador**, um em cada canto de baixo (esquerda = time A, direita = time B), com a câmera do jogador em cima, se configurada; o card de quem está sendo espectado ganha a borda na cor do lado e a etiqueta **ESPECTANDO**;
+- o placar mostra o **nick do jogador** (ou o nome digitado no campo "Nome no placar") e a imagem vira o **brasão** do jogador;
+- **Mostrar radar** e **Mostrar série de mapas (picks e bans)** ligam/desligam o radar e a série (painel do tempo de compra e quadrados do placar) — desligue para mapas da comunidade ou X1 sem veto;
+- a tela de pausa mostra brasão e nome grande de cada jogador, kills, mortes, K/D, timeouts e o equipamento; as câmeras dos dois continuam na tela, acima dela;
+- "vivos" e o card de compra somem (não fazem sentido no 1x1).
+
+#### Configurando o X1 online (remoto)
+
+1. **Servidor dedicado alugado** (não lobby de um dos jogadores, que dá vantagem a quem hospeda), na região que dê ping parecido aos dois (ex.: São Paulo). Hospedagens de CS2 costumam instalar com um clique o plugin **MatchZy** (CounterStrikeSharp): `.ready`, `.pause`/`.unpause`, `.tech`, round de faca, gravação de demo e backup de rounds.
+2. **Você entra no servidor como espectador** (com senha de espectador) e transmite pelo seu PC, onde roda o exportador e a HUD. Os dados de todos os jogadores só chegam espectando.
+3. **Anti-ghosting:** no OBS, em Configurações → Avançado → **Atraso na transmissão**, use 60–120 s. Assim o atraso vale para tudo junto (jogo, HUD e câmeras ficam sincronizados) e os jogadores não ganham nada vendo a live.
+4. **Config do servidor** (ajuste ao regulamento), por exemplo num `x1.cfg`:
+
+```
+mp_autoteambalance 0
+mp_limitteams 0
+bot_quota 0
+bot_kick
+mp_maxrounds 16            // MR8: primeiro a 9
+mp_match_can_clinch 1
+mp_overtime_enable 1
+mp_overtime_maxrounds 6
+mp_freezetime 5
+mp_buytime 20
+mp_roundtime 1.5
+mp_roundtime_defuse 1.5
+mp_team_timeout_max 3
+mp_team_timeout_time 30
+mp_give_player_c4 0        // mapa de aim sem bomba; em mapa oficial com bomba, deixe 1
+sv_allow_votes 0
+mp_spectators_max 4
+```
+
+5. **Mapa:** oficial com `map de_mirage`; da comunidade (Workshop) com `host_workshop_map <id do mapa>`. Mapa da comunidade não tem calibração de radar: desligue o radar no `control.html`.
+6. Se usar `mp_team_timeout_max` diferente de 3, mude `TIMEOUTS_PER_TEAM` no `hud.html`.
 
 ### Câmeras dos jogadores (VDO.Ninja)
 
