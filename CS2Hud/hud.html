@@ -98,6 +98,12 @@
   .roundWin .rwSub{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.22em;
     text-transform:uppercase;margin-top:6px;opacity:.8}
   .lbl{font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  /* X1: nick do jogador no placar pode ser longo -> até 2 linhas, letra menor */
+  #stage.x1 .spine-main{grid-template-columns:1fr 200px 1fr}
+  #stage.x1 .spine-main .side{padding:0 16px;min-width:0}
+  #stage.x1 .lbl{line-height:1.05;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;overflow-wrap:break-word}
+  #stage.x1 .side.right .lbl{text-align:right}
   .midCol{display:flex;align-items:center;justify-content:center;width:100%;height:100%;position:relative}
   .scoreCol{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
   .roundLbl{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
@@ -201,6 +207,22 @@
         font-family:'JetBrains Mono',monospace;font-weight:700;font-size:21px}
   .hpBox.good{color:var(--good)} .hpBox.warn{color:var(--warn)} .hpBox.bad{color:var(--bad)}
   .card.dead .hpBox{color:var(--steel)}
+  /* morto: sem a área da arma (ícone 72px + 10px de espaço), o card encurta
+     esse tanto, continuando colado na borda da tela */
+  .card.dead{width:calc(100% - 82px)}
+  /* morreu agora: pisca vermelho, volta à cor normal e retrai. Durante a
+     animação a máscara de vida sai (senão apagaria o vermelho) e a
+     transparência de "morto" (38%) vem pela opacidade; no fim fica igual ao
+     card de morto normal. */
+  .card.dead.dying{-webkit-mask-image:none;mask-image:none;animation:cardDie .85s linear both}
+  @keyframes cardDie{
+    0%  {width:100%;background-color:rgba(224,32,27,.95);opacity:1}
+    18% {width:100%;background-color:rgba(224,32,27,.95);opacity:1}
+    40% {width:100%;background-color:var(--bg-soft);opacity:1;animation-timing-function:cubic-bezier(.4,0,.2,1)}
+    100%{width:calc(100% - 82px);background-color:var(--bg-soft);opacity:.38}
+  }
+  .card.dead .weaponIc, .card.dead .gear{display:none} /* morto não tem arma nem equipamento */
+  .roster.right .card.dead{margin-left:auto}
   .cMain{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:0 12px;min-width:0}
   .cRow{display:flex;align-items:center;gap:10px;min-width:0}
   .badge{flex:none;width:17px;height:17px;border-radius:50%;background:var(--team);color:#0b0f14;
@@ -497,7 +519,7 @@
      configurada). Compacto pra não cobrir a arma do jogador na tela. */
   #stage.x1 .roster, #stage.x1 .specWrap, #stage.x1 .alive, #stage.x1 .buyInfo{display:none}
   #stage.noRadar .radarBox{display:none}
-  .x1Card{position:absolute;bottom:24px;width:300px;display:none;flex-direction:column;
+  .x1Card{position:absolute;bottom:24px;width:380px;display:none;flex-direction:column;
     transition:bottom .5s ease}
   .x1Card.left{left:24px} .x1Card.right{right:24px}
   #stage.x1 .x1Card{display:flex}
@@ -506,7 +528,7 @@
   #stage.x1.paused .x1Panel, #stage.x1.paused .x1Live{display:none}
   .x1Card.ct{--team:var(--ct);--team-soft:rgba(110,158,218,.16)}
   .x1Card.tr{--team:var(--tr);--team-soft:rgba(217,164,65,.16)}
-  .x1Live{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.22em;
+  .x1Live{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.22em;
     color:#0b0f14;background:var(--team);padding:3px 7px;margin-bottom:5px;align-self:flex-start;
     text-transform:uppercase;line-height:1;visibility:hidden}
   .x1Card.right .x1Live{align-self:flex-end}
@@ -515,34 +537,34 @@
     border:1px solid var(--line);border-bottom:none}
   .x1Cam.show{display:block;animation:camIn .35s ease}
   .x1Cam iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-  .x1Panel{position:relative;height:70px;display:grid;grid-template-columns:62px 1fr;background:var(--bg-soft);
+  .x1Panel{position:relative;height:100px;display:grid;grid-template-columns:74px 1fr;background:var(--bg-soft);
     backdrop-filter:blur(5px);overflow:hidden;box-shadow:inset 0 0 0 1px var(--line);transition:box-shadow .3s ease}
   .x1Card.live .x1Panel{box-shadow:inset 0 0 0 2px var(--team)}
   .x1Card.dead .x1Panel{opacity:.45}
   .x1Hp{display:flex;align-items:center;justify-content:center;background:var(--team-soft);border-left:4px solid var(--team);
-    font-family:'JetBrains Mono',monospace;font-weight:700;font-size:24px}
+    font-family:'JetBrains Mono',monospace;font-weight:700;font-size:30px}
   .x1Hp.good{color:var(--good)} .x1Hp.warn{color:var(--warn)} .x1Hp.bad{color:var(--bad)}
   .x1Card.dead .x1Hp{color:var(--steel)}
-  .x1Main{display:flex;flex-direction:column;justify-content:center;gap:7px;padding:0 12px;min-width:0}
+  .x1Main{display:flex;flex-direction:column;justify-content:center;gap:7px;padding:0 14px;min-width:0}
   .x1Row{display:flex;align-items:center;gap:10px;min-width:0}
-  .x1Nick{font-size:23px;font-weight:700;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-  .x1Weapon{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none}
-  .x1Weapon img.ic{height:22px;width:76px;object-fit:contain;object-position:right center}
-  .x1Ammo{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--steel);white-space:nowrap}
+  .x1Nick{font-size:29px;font-weight:700;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .x1Weapon{display:flex;align-items:center;gap:8px;flex:none}
+  .x1Weapon img.ic{height:26px;width:92px;object-fit:contain;object-position:left center}
+  .x1Ammo{font-family:'JetBrains Mono',monospace;font-size:17px;color:var(--steel);white-space:nowrap}
   .x1Ammo b{color:var(--bone)}
-  .x1Stats{display:flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel);flex:none}
+  .x1Stats{display:flex;align-items:center;gap:11px;font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--steel);flex:none}
   .x1Stats b{color:var(--bone)}
   .x1Stats .money{color:var(--good);font-weight:700}
   .x1Gear{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}
-  .x1Gear img.ic{width:15px;height:15px;object-fit:contain;opacity:.9}
+  .x1Gear img.ic{width:19px;height:19px;object-fit:contain;opacity:.9}
   .x1HpBar{position:absolute;left:0;bottom:0;height:3px;background:var(--team);transition:width .3s}
   /* lado direito espelhado */
-  .x1Card.right .x1Panel{grid-template-columns:1fr 62px}
+  .x1Card.right .x1Panel{grid-template-columns:1fr 74px}
   .x1Card.right .x1Hp{order:2;border-left:none;border-right:4px solid var(--team)}
   .x1Card.right .x1Main{order:1}
   .x1Card.right .x1Row{flex-direction:row-reverse}
-  .x1Card.right .x1Weapon{margin-left:0;margin-right:auto;flex-direction:row-reverse}
-  .x1Card.right .x1Weapon img.ic{object-position:left center;transform:scaleX(-1)}
+  .x1Card.right .x1Weapon{flex-direction:row-reverse}
+  .x1Card.right .x1Weapon img.ic{object-position:right center;transform:scaleX(-1)}
   .x1Card.right .x1Gear{margin-left:0;margin-right:auto;flex-direction:row-reverse}
   .x1Card.right .x1HpBar{left:auto;right:0}
   /* tela de pausa no X1: sem coach */
@@ -784,6 +806,15 @@
     var dead = !!player.isDead;
     side = sideKey(player.team) || side; // cor = lado em que o jogador está agora
     card.className = 'card ' + side + (dead ? ' dead' : '');
+    // acabou de morrer: anima o card encolhendo. Se o card for recriado no
+    // meio da animação, ela continua de onde estava (delay negativo).
+    var sinceDeath = dead && deathSeenAt[player.steamId] ? performance.now() - deathSeenAt[player.steamId] : Infinity;
+    if(sinceDeath < CARD_SHRINK_MS){
+      card.classList.add('dying');
+      card.style.animationDelay = (-Math.round(sinceDeath)) + 'ms';
+      // terminou: volta pro estilo normal de morto (máscara)
+      card.addEventListener('animationend', function(){ card.classList.remove('dying'); });
+    }
     var hpPct = dead ? 0 : Math.max(0, Math.min(100, player.health || 0));
     card.style.setProperty('--hp', hpPct + '%');
 
@@ -877,6 +908,8 @@
 
   // "Morte grudenta": ver uso em render(). Chave = steamId do jogador.
   var deadThisRound = {};
+  var deathSeenAt = {};      // steamId -> quando a HUD viu a morte (animação do card encolhendo)
+  var CARD_SHRINK_MS = 850; // vermelho + retração (mesma duração do cardDie no CSS)
   var lastDeathResetKey = null; // combinação mapa+round
   var lastRoundPhase = null;
   var lastAlivePos = {}; // steamId -> {x,y} - última posição recebida com o jogador VIVO (mundo, não %)
@@ -1495,6 +1528,8 @@
 
       var lbl = $(pos + 'Label');
       if(lbl.textContent !== name) lbl.textContent = name;
+      var lblSize = x1Cfg.on ? nameSize(name, 22, [10, 16], [18, 16]) + 'px' : ''; // só o X1 diminui a letra
+      if(lbl.style.fontSize !== lblSize) lbl.style.fontSize = lblSize;
 
       // logo no lugar do "CT"/"TR" - só mexe no DOM se mudou (senão a
       // imagem recarregaria a cada atualização)
@@ -1954,10 +1989,11 @@
       var html =
         '<div class="x1Hp ' + (p.isDead ? '' : hpClass(hp)) + '">' + (p.isDead ? '—' : hp) + '</div>' +
         '<div class="x1Main">' +
-          '<div class="x1Row"><span class="x1Nick">' + esc(p.nick) + '</span>' +
-            '<span class="x1Weapon">' + ammo + (wIcon && !p.isDead ? '<img class="ic" src="' + wIcon + '" alt="">' : '') + '</span></div>' +
+          '<div class="x1Row"><span class="x1Nick" style="font-size:' + nameSize(p.nick, 29, [14, 20], [24, 20]) + 'px">' + esc(p.nick) + '</span></div>' +
+          '<div class="x1Row"><span class="x1Weapon">' + (wIcon && !p.isDead ? '<img class="ic" src="' + wIcon + '" alt="">' : '') + ammo + '</span>' +
+            '<span class="x1Gear">' + gear + '</span></div>' +
           '<div class="x1Row"><span class="x1Stats"><span>K <b>' + (p.kills || 0) + '</b></span><span>D <b>' + (p.deaths || 0) + '</b></span>' +
-            '<span class="money">' + fmtMoney(p.money) + '</span></span><span class="x1Gear">' + gear + '</span></div>' +
+            '<span class="money">' + fmtMoney(p.money) + '</span></span></div>' +
         '</div>' +
         '<i class="x1HpBar" style="width:' + hp + '%"></i>';
       if(panel.dataset.html !== html){ panel.dataset.html = html; panel.innerHTML = html; } // não recria à toa (ícones piscariam)
@@ -2470,7 +2506,26 @@
     } catch(e){}
   }
 
+  // O CS2 manda nomes com caracteres especiais codificados em HTML
+  // ("&quot;30FPS&quot;"); volta pro texto original.
+  function decodeName(n){
+    if(!n || n.indexOf('&') === -1) return n;
+    return n.replace(/&#x([0-9a-f]+);/gi, function(m, h){ return String.fromCodePoint(parseInt(h, 16)); })
+      .replace(/&#(\d+);/g, function(m, d){ return String.fromCodePoint(parseInt(d, 10)); })
+      .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  }
+
+  // nomes longos ganham letra menor: até limits[0] caracteres = base;
+  // até limits[1] = sizes[0]; acima disso = sizes[1]
+  function nameSize(name, base, limits, sizes){
+    var n = (name || '').length;
+    return n <= limits[0] ? base : n <= limits[1] ? sizes[0] : sizes[1];
+  }
+
   function render(state){
+    (state.players || []).forEach(function(p){ p.nick = decodeName(p.nick); });
+    if(state.spectatedPlayer) state.spectatedPlayer.nick = decodeName(state.spectatedPlayer.nick);
+    if(state.scoreboard){ state.scoreboard.ct.teamName = decodeName(state.scoreboard.ct.teamName); state.scoreboard.t.teamName = decodeName(state.scoreboard.t.teamName); }
     fillPartialState(state);
     updateKillFeed(state);
     updateLayout(state.players || [], state);
@@ -2551,6 +2606,7 @@
     // sem mapa nenhum ainda (pacote parcial logo após abrir): não decide nada
     if(mapKey && (mapKey !== lastDeathResetKey || roundWentBack || enteredFreezetime || overToLive)){
       deadThisRound = {};
+      deathSeenAt = {};
       deathPos = {};
       lastAlivePos = {};
       lastDeathResetKey = mapKey;
@@ -2576,7 +2632,10 @@
       // durante o warmup os jogadores podem reportar vida 0 momentaneamente
       // antes de spawnar de verdade - ignora pra não marcar todo mundo
       // como morto por engano logo que a HUD/partida reinicia.
-      if(phase !== 'warmup' && p.health <= 0) deadThisRound[p.steamId] = true;
+      if(phase !== 'warmup' && p.health <= 0){
+        if(!deadThisRound[p.steamId]) deathSeenAt[p.steamId] = performance.now(); // morreu agora
+        deadThisRound[p.steamId] = true;
+      }
       p.isDead = !!deadThisRound[p.steamId];
 
       lastNick[p.steamId] = p.nick;
@@ -2669,7 +2728,7 @@
     defuseTracker = { active: false, startedAt: 0, total: 0, endAt: 0 };
 
     // morte persistente
-    lastDeathResetKey = null; lastDeathRound = null; deadThisRound = {}; deathPos = {}; lastAlivePos = {};
+    lastDeathResetKey = null; lastDeathRound = null; deadThisRound = {}; deathSeenAt = {}; deathPos = {}; lastAlivePos = {};
     lastGoodMap = null; lastGoodRound = null; deathsRestored = false;
     clearUtility();
     lastPlayerData = {};

@@ -4,7 +4,8 @@ REM  CS2 HUD - inicia tudo de uma vez:
 REM   1) dotnet restore do exportador (so se nao tiver Node.js)
 REM   2) exportador rodando numa janela propria (run.bat: Node.js ou
 REM      dotnet run, reinicia sozinho se cair)
-REM   3) quando a API responder, abre no Google Chrome:
+REM   3) quando a API responder, abre no Google Chrome (em abas novas se
+REM      ele ja estiver aberto):
 REM      HUD, painel de controle e veto de mapas
 REM ==================================================================
 setlocal
@@ -50,11 +51,14 @@ REM com Node.js o exportador serve as paginas por http://localhost:5000
 REM (no OBS a camera do VDO.Ninja so funciona assim); sem Node, abre os arquivos
 set "P1=%ROOT%CS2Hud\hud.html"
 set "P2=%ROOT%CS2Hud\control.html"
-set "P3=%ROOT%CS2MapVeto\index.html"
+REM pagina do veto: index.html ou veto_index.html (o que existir na pasta)
+set "VETOFILE=index.html"
+if exist "%ROOT%CS2MapVeto\veto_index.html" if not exist "%ROOT%CS2MapVeto\index.html" set "VETOFILE=veto_index.html"
+set "P3=%ROOT%CS2MapVeto\%VETOFILE%"
 where node >nul 2>nul && (
   set "P1=http://localhost:5000/hud/hud.html"
   set "P2=http://localhost:5000/hud/control.html"
-  set "P3=http://localhost:5000/veto/veto_index.html"
+  set "P3=http://localhost:5000/veto/%VETOFILE%"
 )
 REM acha o Chrome (instalado para todos os usuarios ou so para o seu)
 set "CHROME="
@@ -62,8 +66,10 @@ if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "CHROME=%Prog
 if not defined CHROME if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "CHROME=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
 if not defined CHROME if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set "CHROME=%LocalAppData%\Google\Chrome\Application\chrome.exe"
 
+REM Chrome ja aberto: as paginas abrem em abas novas na janela atual.
+REM Chrome fechado: abre uma janela nova com as 3 abas.
 if defined CHROME (
-  start "" "%CHROME%" --new-window "%P1%" "%P2%" "%P3%"
+  start "" "%CHROME%" "%P1%" "%P2%" "%P3%"
 ) else (
   echo [AVISO] Google Chrome nao encontrado. Abrindo no navegador padrao.
   start "" "%P1%"

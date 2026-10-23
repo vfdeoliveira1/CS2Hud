@@ -609,12 +609,21 @@ const MIME = {
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png',
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.ico': 'image/x-icon',
 };
+// página do veto: aceita "index.html" ou "veto_index.html" (o nome que estiver na pasta)
+const VETO_NAMES = ['index.html', 'veto_index.html'];
+function vetoFileName(){
+  const dir = STATIC_DIRS['/veto/'];
+  return VETO_NAMES.find(n => fs.existsSync(path.join(dir, n))) || VETO_NAMES[0];
+}
+
 function serveStatic(url, res){
   for (const prefix of Object.keys(STATIC_DIRS)){
     if (!url.startsWith(prefix)) continue;
     const root = STATIC_DIRS[prefix];
     let rel;
     try { rel = decodeURIComponent(url.slice(prefix.length)) || 'index.html'; } catch (e) { return send(res, 400, 'Bad request'), true; }
+    // pediu um dos nomes da página do veto: entrega o que existir
+    if (prefix === '/veto/' && VETO_NAMES.includes(rel)) rel = vetoFileName();
     const file = path.resolve(root, rel);
     // não deixa sair da pasta (ex: /hud/../../arquivo)
     if (file !== root && !file.startsWith(root + path.sep)) return send(res, 403, 'Forbidden'), true;
@@ -739,7 +748,7 @@ Promise.all([listen(GSI_PORT), listen(API_PORT)]).then(() => {
   console.log('Ouvindo o CS2 (GSI) em http://localhost:' + GSI_PORT + '/ ...');
   console.log('API da HUD disponível em http://localhost:' + API_PORT + '/api/hud ...');
   console.log('HUD (use esta URL no OBS): http://localhost:' + API_PORT + '/hud/hud.html');
-  console.log('Painel: http://localhost:' + API_PORT + '/hud/control.html  |  Veto: http://localhost:' + API_PORT + '/veto/index.html');
+  console.log('Painel: http://localhost:' + API_PORT + '/hud/control.html  |  Veto: http://localhost:' + API_PORT + '/veto/' + vetoFileName());
 }).catch(e => {
   console.log('[ERRO] Não consegui abrir as portas ' + GSI_PORT + '/' + API_PORT + ': ' + e.message);
   console.log('       Feche outro exportador que esteja aberto e tente de novo.');
