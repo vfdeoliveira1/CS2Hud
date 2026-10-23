@@ -67,7 +67,7 @@ app.MapGet("/api/hud", () =>
     lock (stateLock)
     {
         if (latestHudState is null)
-            return Results.Json(new { message = "Nenhum dado recebido do CS2 ainda." }, statusCode: 204);
+            return Results.NoContent(); // 204 não pode ter corpo (o Kestrel dava erro no console)
         latestHudState.Teams = teams.Resolve(latestHudState.Players);
         latestHudState.Series = series.Get();
         latestHudState.Cams = cams.Get();
@@ -265,7 +265,7 @@ static TeamScoreDto MapTeam(JsonObject? team)
 {
     return new TeamScoreDto
     {
-        TeamName = Str(team?["name"]),
+        TeamName = System.Net.WebUtility.HtmlDecode(Str(team?["name"])),
         Score = Int(team?["score"]),
         ConsecutiveRoundLosses = Int(team?["consecutive_round_losses"]),
         TimeoutsRemaining = Int(team?["timeouts_remaining"]),
@@ -281,7 +281,7 @@ static PlayerHudDto MapPlayer(string steamId, JsonObject player)
     var dto = new PlayerHudDto
     {
         SteamId = steamId,
-        Nick = Str(player["name"]),
+        Nick = System.Net.WebUtility.HtmlDecode(Str(player["name"])), // CS2 manda "&quot;" etc.
         Team = Str(player["team"]),
 
         Health = Int(state?["health"]),

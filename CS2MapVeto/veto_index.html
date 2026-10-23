@@ -145,6 +145,12 @@
   .mRow .liveBtn{margin-left:auto}
   .mRow .liveBtn.on{background:var(--pick);border-color:var(--pick);color:var(--bg)}
   .manageHelp{color:var(--steel);font-size:17px;margin-top:8px}
+  .mRow input.bad{border-color:var(--ban);color:var(--ban)}
+  .mRow .scoreErr{flex-basis:100%;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ban);display:none}
+  .mRow .scoreErr.show{display:block}
+  .mrBar{display:flex;align-items:center;gap:10px;margin-bottom:10px;color:var(--steel);font-size:17px}
+  .mrBar select{background:var(--panel2);border:1px solid var(--line);color:var(--bone);font-family:'Barlow Condensed',sans-serif;
+    font-size:18px;padding:5px 8px;outline:none}
 
   .order li::before{content:counter(o);font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel);width:18px}
   .order .k{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.1em;padding:3px 7px;color:var(--bg)}
@@ -202,10 +208,17 @@
     <h2>Mapas da série</h2>
     <div class="series" id="resSeries"></div>
     <h2>Série na HUD <span class="hudStatus" id="hudStatus"></span></h2>
+    <div class="mrBar"><label for="mrSel">Rounds por mapa</label>
+      <select id="mrSel">
+        <option value="12">MR12: vence com 13 (prorrogação: 16, 19…)</option>
+        <option value="8">MR8: vence com 9 (prorrogação: 12, 15…)</option>
+      </select>
+    </div>
     <div class="manage" id="resManage"></div>
     <p class="manageHelp">Digite o placar final de cada mapa (o vencedor é marcado sozinho, ou clique no nome do time) e marque o mapa
       que está sendo jogado com <b>AO VIVO</b>. Tudo vai direto pra HUD (o CS2HudExporter precisa estar rodando). Use nos times os
-      mesmos nomes do control.html, pra HUD ligar a logo e os quadrados da série.</p>
+      mesmos nomes do control.html, pra HUD ligar a logo e os quadrados da série. Placar impossível (ex: 13:12, 14:10) fica em vermelho
+      e não vai pra HUD; no mapa <b>AO VIVO</b> dá pra ir atualizando o placar parcial.</p>
     <h2>Banidos</h2>
     <div class="bans" id="resBans"></div>
     <h2>Ordem completa</h2>
@@ -248,7 +261,7 @@
   // ESTADO
   // =====================================================================
   // actions: [{ team:'A'|'B', type:'ban'|'pick', map:id, side:{team, side:'CT'|'TR'} }]
-  var state = { bo: 0, nameA: '', nameB: '', started: false, actions: [], results: {}, current: -1 };
+  var state = { bo: 0, nameA: '', nameB: '', started: false, actions: [], results: {}, current: -1, mr: 12 };
   var API_BASE = 'http://localhost:5000'; // CS2HudExporter
 
   var $ = function(id){ return document.getElementById(id); };
@@ -267,6 +280,7 @@
         state = s;
         state.results = state.results || {};
         if(typeof state.current !== 'number') state.current = -1;
+        if(state.mr !== 8 && state.mr !== 12) state.mr = 12;
       }
     } catch(e){}
   }
@@ -465,6 +479,31 @@
   }
   function toScore(v){ var n = parseInt(v, 10); return isNaN(n) || n < 0 ? null : n; }
 
+  // Placar final possível? (MR12 com prorrogação MR3, como no CS2)
+  //  - tempo normal: vencedor com 13, perdedor de 0 a 11 (12:12 vai pra prorrogação)
+  //  - prorrogação: 3 rounds por half, vence quem fizer 4 de 6. Vencedor com
+  //    16, 19, 22...; perdedor 2 a 4 rounds atrás (ex: 16:12, 16:13, 16:14)
+  // MR8 (X1): mesma regra com 9 no lugar de 13 (prorrogação 12, 15...).
+  // Retorna null se o placar é possível, ou o motivo se não é.
+  function scoreProblem(a, b){
+    var base = state.mr || 12, win = Math.max(a, b), lose = Math.min(a, b);
+    var first = base + 1;
+    if(a === b) return 'Placar final não pode ser empate.';
+    if(win === first){
+      return lose <= base - 1 ? null : 'Com ' + first + ', o perdedor fica entre 0 e ' + (base - 1) + ' (' + base + ':' + base + ' vai pra prorrogação).';
+    }
+    if(win > first && (win - first) % 3 === 0){
+      return lose >= win - 4 && lose <= win - 2 ? null
+        : 'Na prorrogação, com ' + win + ' o perdedor fica com ' + (win - 4) + ', ' + (win - 3) + ' ou ' + (win - 2) + '.';
+    }
+    return 'O vencedor termina com ' + first + ' (ou ' + (first + 3) + ', ' + (first + 6) + '… na prorrogação), não com ' + win + '.';
+  }
+  // placar final completo e possível (é o único que vai pra HUD)
+  function validScore(r){
+    var a = toScore(r.a), b = toScore(r.b);
+    return a !== null && b !== null && !scoreProblem(a, b);
+  }
+
   function renderManage(){
     var maps = seriesMaps();
     if(state.current >= maps.length) state.current = -1;
@@ -481,7 +520,24 @@
         '<span class="colon">:</span>' +
         '<input type="number" min="0" max="99" class="sb" value="' + esc(r.b) + '" placeholder="-">' +
         '<button type="button" class="tbtn b' + (r.winner === 'B' ? ' win' : '') + '" title="Marcar como vencedor">' + esc(teamName('B')) + '</button>' +
-        '<button type="button" class="liveBtn' + (state.current === i ? ' on' : '') + '">● Ao vivo</button>';
+        '<button type="button" class="liveBtn' + (state.current === i ? ' on' : '') + '">● Ao vivo</button>' +
+        '<div class="scoreErr"></div>';
+
+      // placar impossível: campos em vermelho + motivo (no mapa ao vivo o placar
+      // pode ser parcial, então só avisa nos outros)
+      function showProblem(msg){
+        var bad = !!msg;
+        row.querySelector('.sa').classList.toggle('bad', bad);
+        row.querySelector('.sb').classList.toggle('bad', bad);
+        var el = row.querySelector('.scoreErr');
+        el.textContent = msg || '';
+        el.classList.toggle('show', bad);
+      }
+      function currentProblem(){
+        var a = toScore(r.a), b = toScore(r.b);
+        if(a === null || b === null || state.current === i) return null;
+        return scoreProblem(a, b);
+      }
 
       function setWinner(w){
         r.winner = w;
@@ -495,22 +551,38 @@
         r.a = row.querySelector('.sa').value;
         r.b = row.querySelector('.sb').value;
         var a = toScore(r.a), b = toScore(r.b);
-        if(a !== null && b !== null && a !== b){
+        var problem = currentProblem();
+        showProblem(problem);
+        // placar impossível: tira o vencedor que tinha saído do placar anterior
+        if(problem && r.winner){ r.winner = ''; save(); renderManage(); syncSeries(); return; }
+        // vencedor só sai de placar final possível
+        if(validScore(r)){
           var w = a > b ? 'A' : 'B';
           if(r.winner !== w){ setWinner(w); save(); renderManage(); syncSeries(); return; }
         }
         save(); syncSeries();
       }
+      // clicar no time: não deixa marcar como vencedor quem perdeu no placar
+      function clickWinner(w){
+        var nw = r.winner === w ? '' : w;
+        if(nw && validScore(r)){
+          var byScore = toScore(r.a) > toScore(r.b) ? 'A' : 'B';
+          if(nw !== byScore){ showProblem('Pelo placar, quem venceu foi ' + teamName(byScore) + '.'); return; }
+        }
+        setWinner(nw); save(); renderManage(); syncSeries();
+      }
       row.querySelector('.sa').addEventListener('change', onScore);
       row.querySelector('.sb').addEventListener('change', onScore);
-      row.querySelector('.tbtn.a').addEventListener('click', function(){ setWinner(r.winner === 'A' ? '' : 'A'); save(); renderManage(); syncSeries(); });
-      row.querySelector('.tbtn.b').addEventListener('click', function(){ setWinner(r.winner === 'B' ? '' : 'B'); save(); renderManage(); syncSeries(); });
+      row.querySelector('.tbtn.a').addEventListener('click', function(){ clickWinner('A'); });
+      row.querySelector('.tbtn.b').addEventListener('click', function(){ clickWinner('B'); });
       row.querySelector('.liveBtn').addEventListener('click', function(){
         state.current = state.current === i ? -1 : i;
         save(); renderManage(); syncSeries();
       });
+      showProblem(currentProblem());
       box.appendChild(row);
     });
+    $('mrSel').value = String(state.mr || 12);
   }
 
   // envio pra HUD (com um pequeno atraso, pra juntar alterações seguidas)
@@ -529,7 +601,7 @@
         maps: seriesMaps().map(function(m){
           var r = resultOf(m.id);
           return { id: m.id, name: mapById(m.id).name, pickedBy: m.pickedBy,
-                   scoreA: toScore(r.a), scoreB: toScore(r.b), winner: r.winner };
+                   scoreA: validScore(r) ? toScore(r.a) : null, scoreB: validScore(r) ? toScore(r.b) : null, winner: r.winner };
         })
       };
       fetch(API_BASE + '/api/series', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -593,6 +665,10 @@
   }
   $('restartBtn').addEventListener('click', restart);
   $('resNew').addEventListener('click', restart);
+  $('mrSel').addEventListener('change', function(){
+    state.mr = this.value === '8' ? 8 : 12;
+    save(); renderManage(); syncSeries();
+  });
 
   load();
   render();

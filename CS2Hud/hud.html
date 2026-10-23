@@ -98,6 +98,12 @@
   .roundWin .rwSub{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.22em;
     text-transform:uppercase;margin-top:6px;opacity:.8}
   .lbl{font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  /* X1: nick do jogador no placar pode ser longo -> até 2 linhas, letra menor */
+  #stage.x1 .spine-main{grid-template-columns:1fr 200px 1fr}
+  #stage.x1 .spine-main .side{padding:0 16px;min-width:0}
+  #stage.x1 .lbl{line-height:1.05;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;overflow-wrap:break-word}
+  #stage.x1 .side.right .lbl{text-align:right}
   .midCol{display:flex;align-items:center;justify-content:center;width:100%;height:100%;position:relative}
   .scoreCol{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
   .roundLbl{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
@@ -201,6 +207,22 @@
         font-family:'JetBrains Mono',monospace;font-weight:700;font-size:21px}
   .hpBox.good{color:var(--good)} .hpBox.warn{color:var(--warn)} .hpBox.bad{color:var(--bad)}
   .card.dead .hpBox{color:var(--steel)}
+  /* morto: sem a área da arma (ícone 72px + 10px de espaço), o card encurta
+     esse tanto, continuando colado na borda da tela */
+  .card.dead{width:calc(100% - 82px)}
+  /* morreu agora: pisca vermelho, volta à cor normal e retrai. Durante a
+     animação a máscara de vida sai (senão apagaria o vermelho) e a
+     transparência de "morto" (38%) vem pela opacidade; no fim fica igual ao
+     card de morto normal. */
+  .card.dead.dying{-webkit-mask-image:none;mask-image:none;animation:cardDie .85s linear both}
+  @keyframes cardDie{
+    0%  {width:100%;background-color:rgba(224,32,27,.95);opacity:1}
+    18% {width:100%;background-color:rgba(224,32,27,.95);opacity:1}
+    40% {width:100%;background-color:var(--bg-soft);opacity:1;animation-timing-function:cubic-bezier(.4,0,.2,1)}
+    100%{width:calc(100% - 82px);background-color:var(--bg-soft);opacity:.38}
+  }
+  .card.dead .weaponIc, .card.dead .gear{display:none} /* morto não tem arma nem equipamento */
+  .roster.right .card.dead{margin-left:auto}
   .cMain{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:0 12px;min-width:0}
   .cRow{display:flex;align-items:center;gap:10px;min-width:0}
   .badge{flex:none;width:17px;height:17px;border-radius:50%;background:var(--team);color:#0b0f14;
@@ -482,6 +504,84 @@
     margin-left:auto}
   .specPanel .specHp.good{color:var(--good)} .specPanel .specHp.warn{color:var(--warn)} .specPanel .specHp.bad{color:var(--bad)}
 
+
+  /* diagnóstico das câmeras: aparece quando a página não é "segura" (aí o
+     VDO.Ninja não consegue abrir câmera com senha) ou com ?debug=1 na URL */
+  .camDiag{position:absolute;top:140px;left:50%;transform:translateX(-50%);max-width:900px;display:none;
+    background:rgba(224,100,90,.92);color:#fff;font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.5;
+    padding:10px 16px;white-space:pre-wrap;z-index:60}
+  .camDiag.show{display:block}
+  .camDiag.ok{background:rgba(9,13,18,.92);border:1px solid var(--good)}
+
+  /* ---------------- modo X1 (1 contra 1) ---------------- */
+  /* No lugar dos 5 cards de cada lado e do painel "espectando": um card por
+     jogador, cada um num canto de baixo, com a câmera dele em cima (se
+     configurada). Compacto pra não cobrir a arma do jogador na tela. */
+  #stage.x1 .roster, #stage.x1 .specWrap, #stage.x1 .alive, #stage.x1 .buyInfo{display:none}
+  #stage.noRadar .radarBox{display:none}
+  .x1Card{position:absolute;bottom:24px;width:380px;display:none;flex-direction:column;
+    transition:bottom .5s ease}
+  .x1Card.left{left:24px} .x1Card.right{right:24px}
+  #stage.x1 .x1Card{display:flex}
+  /* na pausa as câmeras continuam, logo acima da tela de pausa (o card some) */
+  #stage.x1.paused .x1Card{bottom:calc(32px + var(--pauseH, 190px))}
+  #stage.x1.paused .x1Panel, #stage.x1.paused .x1Live{display:none}
+  .x1Card.ct{--team:var(--ct);--team-soft:rgba(110,158,218,.16)}
+  .x1Card.tr{--team:var(--tr);--team-soft:rgba(217,164,65,.16)}
+  .x1Live{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.22em;
+    color:#0b0f14;background:var(--team);padding:3px 7px;margin-bottom:5px;align-self:flex-start;
+    text-transform:uppercase;line-height:1;visibility:hidden}
+  .x1Card.right .x1Live{align-self:flex-end}
+  .x1Card.live .x1Live{visibility:visible}
+  .x1Cam{position:relative;display:none;aspect-ratio:16/9;background:#000;overflow:hidden;
+    border:1px solid var(--line);border-bottom:none}
+  .x1Cam.show{display:block;animation:camIn .35s ease}
+  .x1Cam iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .x1Panel{position:relative;height:100px;display:grid;grid-template-columns:74px 1fr;background:var(--bg-soft);
+    backdrop-filter:blur(5px);overflow:hidden;box-shadow:inset 0 0 0 1px var(--line);transition:box-shadow .3s ease}
+  .x1Card.live .x1Panel{box-shadow:inset 0 0 0 2px var(--team)}
+  .x1Card.dead .x1Panel{opacity:.45}
+  .x1Hp{display:flex;align-items:center;justify-content:center;background:var(--team-soft);border-left:4px solid var(--team);
+    font-family:'JetBrains Mono',monospace;font-weight:700;font-size:30px}
+  .x1Hp.good{color:var(--good)} .x1Hp.warn{color:var(--warn)} .x1Hp.bad{color:var(--bad)}
+  .x1Card.dead .x1Hp{color:var(--steel)}
+  .x1Main{display:flex;flex-direction:column;justify-content:center;gap:7px;padding:0 14px;min-width:0}
+  .x1Row{display:flex;align-items:center;gap:10px;min-width:0}
+  .x1Nick{font-size:29px;font-weight:700;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .x1Weapon{display:flex;align-items:center;gap:8px;flex:none}
+  .x1Weapon img.ic{height:26px;width:92px;object-fit:contain;object-position:left center}
+  .x1Ammo{font-family:'JetBrains Mono',monospace;font-size:17px;color:var(--steel);white-space:nowrap}
+  .x1Ammo b{color:var(--bone)}
+  .x1Stats{display:flex;align-items:center;gap:11px;font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--steel);flex:none}
+  .x1Stats b{color:var(--bone)}
+  .x1Stats .money{color:var(--good);font-weight:700}
+  .x1Gear{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}
+  .x1Gear img.ic{width:19px;height:19px;object-fit:contain;opacity:.9}
+  .x1HpBar{position:absolute;left:0;bottom:0;height:3px;background:var(--team);transition:width .3s}
+  /* lado direito espelhado */
+  .x1Card.right .x1Panel{grid-template-columns:1fr 74px}
+  .x1Card.right .x1Hp{order:2;border-left:none;border-right:4px solid var(--team)}
+  .x1Card.right .x1Main{order:1}
+  .x1Card.right .x1Row{flex-direction:row-reverse}
+  .x1Card.right .x1Weapon{flex-direction:row-reverse}
+  .x1Card.right .x1Weapon img.ic{object-position:right center;transform:scaleX(-1)}
+  .x1Card.right .x1Gear{margin-left:0;margin-right:auto;flex-direction:row-reverse}
+  .x1Card.right .x1HpBar{left:auto;right:0}
+  /* tela de pausa no X1: sem coach */
+  #stage.x1 .pCoachRow{display:none}
+  .pX1Row{display:none;grid-template-columns:700px 1fr 700px;gap:6px}
+  #stage.x1 .pX1Row{display:grid}
+  .pFighter{display:flex;align-items:center;gap:14px;height:64px;padding:0 18px;background:var(--bg);
+    border-left:4px solid var(--team);backdrop-filter:blur(6px)}
+  .pFighter.right{flex-direction:row-reverse;border-left:none;border-right:4px solid var(--team)}
+  .pFighter.ct{--team:var(--ct)} .pFighter.tr{--team:var(--tr)}
+  .pFighter img{width:48px;height:48px;object-fit:contain}
+  .pFighter .fn{font-family:'Anton',sans-serif;font-size:40px;letter-spacing:.03em;line-height:1;color:#fff;text-transform:uppercase;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .pFighter .fs{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--team)}
+  .pFighter.right .fs{margin-left:0;margin-right:auto}
+  #stage.x1 .pStats{grid-template-columns:repeat(4,1fr)}
+  .pStat .v.x1v{color:#fff}
 </style>
 </head>
 <body>
@@ -540,6 +640,7 @@
     <div class="hint" id="radarHint">Posições só chegam quando você está<br>espectando a partida (allplayers_position)</div>
   </div>
   <div class="pause" id="pauseScreen">
+    <div class="pX1Row"><div class="pFighter ct" id="pX1L"></div><div></div><div class="pFighter tr right" id="pX1R"></div></div>
     <div class="pCoachRow"><div class="pCoach ct" id="pCoachCT"></div><div></div><div class="pCoach tr" id="pCoachT"></div></div>
     <div class="pHead">
       <div class="pBox pStats ct" id="pStatsCT"></div>
@@ -553,8 +654,21 @@
     </div>
   </div>
 
+  <div class="camDiag" id="camDiag"></div>
   <div class="killfeed" id="killfeed"></div>
   <div class="seriesPanel" id="seriesPanel"></div>
+
+  <!-- modo X1: um card por jogador -->
+  <div class="x1Card left" id="x1Left">
+    <span class="x1Live">Espectando</span>
+    <div class="x1Cam" id="x1CamLeft"></div>
+    <div class="x1Panel" id="x1PanelLeft"></div>
+  </div>
+  <div class="x1Card right" id="x1Right">
+    <span class="x1Live">Espectando</span>
+    <div class="x1Cam" id="x1CamRight"></div>
+    <div class="x1Panel" id="x1PanelRight"></div>
+  </div>
 
   <div class="crosshair" id="crosshair"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i></div>
 
@@ -692,6 +806,15 @@
     var dead = !!player.isDead;
     side = sideKey(player.team) || side; // cor = lado em que o jogador está agora
     card.className = 'card ' + side + (dead ? ' dead' : '');
+    // acabou de morrer: anima o card encolhendo. Se o card for recriado no
+    // meio da animação, ela continua de onde estava (delay negativo).
+    var sinceDeath = dead && deathSeenAt[player.steamId] ? performance.now() - deathSeenAt[player.steamId] : Infinity;
+    if(sinceDeath < CARD_SHRINK_MS){
+      card.classList.add('dying');
+      card.style.animationDelay = (-Math.round(sinceDeath)) + 'ms';
+      // terminou: volta pro estilo normal de morto (máscara)
+      card.addEventListener('animationend', function(){ card.classList.remove('dying'); });
+    }
     var hpPct = dead ? 0 : Math.max(0, Math.min(100, player.health || 0));
     card.style.setProperty('--hp', hpPct + '%');
 
@@ -785,6 +908,8 @@
 
   // "Morte grudenta": ver uso em render(). Chave = steamId do jogador.
   var deadThisRound = {};
+  var deathSeenAt = {};      // steamId -> quando a HUD viu a morte (animação do card encolhendo)
+  var CARD_SHRINK_MS = 850; // vermelho + retração (mesma duração do cardDie no CSS)
   var lastDeathResetKey = null; // combinação mapa+round
   var lastRoundPhase = null;
   var lastAlivePos = {}; // steamId -> {x,y} - última posição recebida com o jogador VIVO (mundo, não %)
@@ -835,9 +960,18 @@
     var played = state.scoreboard.ct.score + state.scoreboard.t.score;
     var known = valid.some(function(p){ return teamPos[p.steamId]; });
 
+    // jogadores gravados no mesmo lado da tela mas em times diferentes agora
+    // (ex: no warmup os dois entram de TR e um troca pra CT depois):
+    // a gravação está errada, refaz pelos times atuais
+    var mixed = { L: {}, R: {} };
+    valid.forEach(function(p){ var pos = teamPos[p.steamId]; if(pos) mixed[pos][p.team] = true; });
+    var conflict = (mixed.L.CT && mixed.L.T) || (mixed.R.CT && mixed.R.T);
+
     // começo (ou mapa/partida nova): time A = quem começou de CT. Se a HUD
-    // abrir já no 2º half, quem começou de CT está de TR agora.
-    if(!known || (state.map && state.map !== layoutMap) || played < layoutPlayed){
+    // abrir já no 2º half, quem começou de CT está de TR agora. Antes do
+    // primeiro round terminar (warmup incluso) os times ainda podem mudar,
+    // então segue sempre os times atuais.
+    if(!known || conflict || played === 0 || (state.map && state.map !== layoutMap) || played < layoutPlayed){
       var startedCT = sideParity(played + 1) === 0 ? 'CT' : 'T';
       teamPos = {};
       valid.forEach(function(p){ teamPos[p.steamId] = p.team === startedCT ? 'L' : 'R'; });
@@ -1286,6 +1420,16 @@
   };
   var currentTeams = { ct: null, tr: null }; // {name, logoUrl} ou null (= padrão)
 
+  // Modo X1 (control.html): radar e série podem ser desligados nesse modo
+  var x1Cfg = { on: false, radar: true, series: true };
+  var x1Nicks = { ct: '', tr: '' }; // nick do jogador de cada lado (nome no placar no X1)
+
+  // nome de um lado: do control.html > nick do jogador (X1) > padrão
+  function sideName(side, full){
+    var c = currentTeams[side];
+    return (c && c.name) || (x1Cfg.on && x1Nicks[side]) || DEFAULT_TEAM[side][full ? 'full' : 'label'];
+  }
+
   // =====================================================================
   // SÉRIE DE MAPAS (do veto) - painel + quadrados do placar
   // =====================================================================
@@ -1345,6 +1489,7 @@
     currentTeams.tr = teamsCfg.t || null;
     // formato da série: do veto (CS2MapVeto) se tiver; senão o antigo do control.html
     var bestOf = currentSeries ? (currentSeries.bestOf || 0) : (teamsCfg.bestOf || 0);
+    if(x1Cfg.on && !x1Cfg.series) bestOf = 0; // X1 sem série: sem quadrados
     var mapsToWin = bestOf ? Math.ceil(bestOf / 2) : 0; // MD1=1, MD3=2, MD5=3, MD7=4
     // pos = prefixo dos elementos da posição na tela ('ct' = esquerda,
     // 'tr' = direita); side = lado cujos dados aparecem ali agora
@@ -1355,7 +1500,7 @@
       // nome do painel > nome que o próprio jogo manda (torneios) > padrão
       var gsiName = gsiNames[side];
       if(gsiName === 'CT' || gsiName === 'T') gsiName = ''; // exportador usa isso quando não há nome
-      var name = (cfg && cfg.name) || gsiName || DEFAULT_TEAM[side].label;
+      var name = (cfg && cfg.name) || (x1Cfg.on && x1Nicks[side]) || gsiName || DEFAULT_TEAM[side].label;
 
       // quadrados da série - mapas vencidos (da série do veto, pelo nome do
       // time; ou o valor antigo do control.html) - só redesenha se mudou
@@ -1383,6 +1528,8 @@
 
       var lbl = $(pos + 'Label');
       if(lbl.textContent !== name) lbl.textContent = name;
+      var lblSize = x1Cfg.on ? nameSize(name, 22, [10, 16], [18, 16]) + 'px' : ''; // só o X1 diminui a letra
+      if(lbl.style.fontSize !== lblSize) lbl.style.fontSize = lblSize;
 
       // logo no lugar do "CT"/"TR" - só mexe no DOM se mudou (senão a
       // imagem recarregaria a cada atualização)
@@ -1417,7 +1564,7 @@
 
     var side = sb.ct.score === sb.t.score ? null : (sb.ct.score > sb.t.score ? 'ct' : 'tr');
     var cfg = side && currentTeams[side];
-    var name = side ? ((cfg && cfg.name) || DEFAULT_TEAM[side].full) : 'EMPATE';
+    var name = side ? sideName(side, true) : 'EMPATE';
     var win = side ? scoreOf(sb, side).score : sb.ct.score;
     var lose = side ? scoreOf(sb, side === 'ct' ? 'tr' : 'ct').score : sb.t.score;
 
@@ -1453,7 +1600,7 @@
     if($('matchWin').classList.contains('show')) return;
     var cfg = currentTeams[side];
     var box = $('roundWin');
-    $('rwName').textContent = (cfg && cfg.name) || DEFAULT_TEAM[side].full;
+    $('rwName').textContent = sideName(side, true);
     $('rwSub').textContent = 'venceu o round ' + roundNumber;
     var logo = $('rwLogo');
     if(cfg && cfg.logoUrl){ logo.src = API_BASE + cfg.logoUrl; logo.style.display = 'block'; }
@@ -1506,7 +1653,7 @@
 
   function lossBonus(losses){ return 1400 + 500 * Math.min(Math.max(losses || 0, 0), 4); }
   function fmtMoney(v){ return '$' + (v || 0).toLocaleString('en-US'); }
-  function teamName(side){ var c = currentTeams[side]; return (c && c.name) || DEFAULT_TEAM[side].label; }
+  function teamName(side){ return sideName(side, false); }
   function teamLogo(side){ var c = currentTeams[side]; return c && c.logoUrl ? API_BASE + c.logoUrl : ''; }
   function esc(t){ var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
 
@@ -1541,7 +1688,18 @@
       var total = Math.max(TIMEOUTS_PER_TEAM, left);
       var boxes = '';
       for(var i = 0; i < total; i++) boxes += '<i class="' + (i < left ? 'on' : '') + '"></i>';
-      var cells = [
+      var cells;
+      if(x1Cfg.on){
+        // X1: desempenho do jogador no mapa em vez da economia do time
+        var pl = x1PlayerOf(r[2]) || {};
+        var k = pl.kills || 0, d = pl.deaths || 0;
+        cells = [
+          '<div class="pStat"><span class="k">Kills</span><span class="v x1v">' + k + '</span></div>',
+          '<div class="pStat"><span class="k">Mortes</span><span class="v x1v">' + d + '</span></div>',
+          '<div class="pStat"><span class="k">K/D</span><span class="v x1v">' + (d ? (k / d).toFixed(2) : k.toFixed(2)) + '</span></div>',
+          '<div class="pStat"><span class="k">Timeouts</span><span class="pTimeouts">' + boxes + '</span></div>'
+        ];
+      } else cells = [
         '<div class="pStat"><span class="k">Equipamento</span><span class="v">' + fmtMoney(equip) + '</span></div>',
         '<div class="pStat"><span class="k">Loss bonus</span><span class="v">' + fmtMoney(lossBonus(r[3].consecutiveRoundLosses)) + '</span></div>',
         '<div class="pStat"><span class="k">Timeouts</span><span class="pTimeouts">' + boxes + '</span></div>'
@@ -1549,6 +1707,20 @@
       if(r[4]) cells.reverse(); // espelhado do lado direito
       $(r[1]).innerHTML = cells.join('');
     });
+
+    // X1: faixa com brasão + nome grande de cada jogador
+    if(x1Cfg.on){
+      [['pX1L', LAYOUT.left, ' '], ['pX1R', LAYOUT.right, ' right ']].forEach(function(r){
+        var logo = teamLogo(r[1]);
+        var html = (logo ? '<img src="' + logo + '" alt="">' : '') + '<span class="fn">' + esc(teamName(r[1])) + '</span>' +
+          '<span class="fs">' + (r[1] === 'ct' ? 'CT' : 'TR') + '</span>';
+        var el = $(r[0]);
+        el.className = 'pFighter' + r[2] + r[1];
+        if(el.dataset.html !== html){ el.dataset.html = html; el.innerHTML = html; }
+      });
+      // as câmeras ficam logo acima da tela de pausa
+      stage.style.setProperty('--pauseH', $('pauseScreen').offsetHeight + 'px');
+    }
 
     // centro do cabeçalho: logo NOME  6 vs 3  NOME logo
     var L = LAYOUT.left, R = LAYOUT.right;
@@ -1661,11 +1833,29 @@
       (password ? '&password=' + encodeURIComponent(password) : '');
   }
 
+  var CAM_DEBUG = /[?&]debug(=1)?(&|$)/.test(location.search);
+  function renderCamDiag(cams, enabled){
+    var el = $('camDiag');
+    var secure = !!window.isSecureContext;
+    var problem = enabled && !secure;
+    if(!problem && !CAM_DEBUG){ if(el.className !== 'camDiag') el.className = 'camDiag'; return; }
+    var txt = problem
+      ? 'CÂMERAS NÃO VÃO FUNCIONAR: a HUD está aberta em "' + location.origin + '", que o navegador não considera seguro.\n' +
+        'No OBS: Fonte de navegador > desmarque "Arquivo local" > URL http://localhost:5000/hud/hud.html'
+      : 'Diagnóstico das câmeras\nendereço: ' + location.href + '\npágina segura: ' + (secure ? 'sim' : 'NÃO') +
+        '\ncâmeras ligadas: ' + (enabled ? 'sim' : 'não') + ' | senha: ' + (cams && cams.password ? 'sim' : 'não') +
+        '\nIDs: ' + (enabled ? Object.keys(cams.ids || {}).map(function(k){ return cams.ids[k]; }).join(', ') || '(nenhum)' : '-');
+    var cls = 'camDiag show' + (problem ? '' : ' ok');
+    if(el.className !== cls) el.className = cls;
+    if(el.textContent !== txt) el.textContent = txt;
+  }
+
   function renderCam(state){
     var cams = state.cams;
     var box = $('camBox');
     var enabled = !!(cams && cams.enabled);
     var ids = enabled ? (cams.ids || {}) : {};
+    renderCamDiag(cams, enabled);
 
     // (re)cria os iframes só quando a configuração muda
     var key = enabled ? JSON.stringify([cams.password || '', ids]) : 'off';
@@ -1679,20 +1869,46 @@
       Object.keys(wanted).forEach(function(id){
         if(camFrames[id]) return;
         var f = document.createElement('iframe');
-        f.allow = 'autoplay';
+        // permissões que o VDO.Ninja pede pra rodar dentro de iframe (no OBS
+        // só "autoplay" às vezes não basta e o vídeo não começa)
+        f.allow = 'autoplay; fullscreen; picture-in-picture; camera; microphone; display-capture';
+        f.setAttribute('allowfullscreen', '');
         f.src = camUrl(id, cams.password);
         box.appendChild(f);
         camFrames[id] = f;
       });
     }
 
+    // onde cada câmera aparece: no X1, no card de cada jogador; no modo
+    // normal, no painel do jogador em destaque
+    var place = {}; // ID da câmera -> caixa
     var p = state.spectatedPlayer;
-    var camId = enabled && p ? ids[p.steamId] : null;
-    Object.keys(camFrames).forEach(function(id){ camFrames[id].classList.toggle('on', id === camId); });
-    var show = !!(camId && camFrames[camId]);
+    var camId = null;
+    if(x1Cfg.on){
+      [[x1Left, 'x1CamLeft'], [x1Right, 'x1CamRight']].forEach(function(r){
+        var id = enabled && r[0] ? ids[r[0].steamId] : null;
+        if(id && camFrames[id]) place[id] = $(r[1]);
+      });
+    } else {
+      camId = enabled && p ? ids[p.steamId] : null;
+      if(camId && camFrames[camId]) place[camId] = box;
+    }
+    Object.keys(camFrames).forEach(function(id){
+      var f = camFrames[id];
+      var target = place[id] || box;
+      if(f.parentNode !== target) target.appendChild(f); // só muda de lugar ao ligar/desligar o X1 (recarrega o vídeo)
+      f.classList.toggle('on', !!place[id]);
+    });
+    ['x1CamLeft', 'x1CamRight'].forEach(function(cid){
+      var el = $(cid);
+      var cls = 'x1Cam' + (x1Cfg.on && el.querySelector('iframe') ? ' show' : '');
+      if(el.className !== cls) el.className = cls;
+    });
+    var show = !x1Cfg.on && !!(camId && camFrames[camId]);
     var cls = 'camBox' + (show ? ' show ' + (p.team === 'CT' ? 'ct' : 'tr') : '');
     if(box.className !== cls) box.className = cls; // não reinicia o fade à toa
   }
+  var x1Left = null, x1Right = null; // jogador de cada card do X1 (câmeras)
 
   function renderSpectator(player){
     renderCrosshair(player);
@@ -1736,6 +1952,52 @@
     } else {
       ammoEl.style.display = 'none';
     }
+  }
+
+  // =====================================================================
+  // MODO X1: um card por jogador (canto esquerdo = time A, direito = B)
+  // =====================================================================
+  // jogador de cada lado: o vivo, se tiver mais de um (ex: alguém entrou no time por engano)
+  function x1PlayerOf(list){
+    var alive = list.filter(function(p){ return !p.isDead; });
+    return (alive.length ? alive : list).slice().sort(function(a, b){ return a.hudIndex - b.hudIndex; })[0] || null;
+  }
+
+  function renderX1(state, leftPlayers, rightPlayers){
+    if(!x1Cfg.on) return;
+    var specId = state.spectatedPlayer ? state.spectatedPlayer.steamId : null;
+    [['x1Left', 'x1PanelLeft', leftPlayers, LAYOUT.left], ['x1Right', 'x1PanelRight', rightPlayers, LAYOUT.right]].forEach(function(r){
+      var card = $(r[0]), panel = $(r[1]);
+      var p = x1PlayerOf(r[2]);
+      var side = p ? sideKey(p.team) : r[3];
+      card.className = 'x1Card ' + (r[0] === 'x1Left' ? 'left ' : 'right ') + side +
+        (p && p.isDead ? ' dead' : '') + (p && specId && p.steamId === specId ? ' live' : '');
+      if(!p){ if(panel.dataset.html !== ''){ panel.dataset.html = ''; panel.innerHTML = ''; } return; }
+
+      var hp = p.isDead ? 0 : Math.max(0, p.health || 0);
+      var weapon = p.displayWeapon || p.activeWeapon;
+      var wIcon = weapon ? weaponIcon(weapon) : '';
+      var ammo = !p.isDead && p.ammoClipMax > 0 && p.activeWeapon === weapon
+        ? '<span class="x1Ammo"><b>' + p.ammoClip + '</b>/' + p.ammoReserve + '</span>' : '';
+      var gear = '';
+      if(p.hasArmor) gear += '<img class="ic" src="' + ICONS_PATH + (p.hasHelmet ? 'armor_helmet.svg' : 'armor.svg') + '" alt="">';
+      if(p.hasDefuseKit) gear += '<img class="ic" src="' + ICONS_PATH + 'defuser.svg" alt="">';
+      (p.utility || []).forEach(function(u){
+        var src = u === 'weapon_c4' ? ICONS_PATH + 'c4.svg' : weaponIcon(u);
+        if(src) gear += '<img class="ic" src="' + src + '" alt="">';
+      });
+      var html =
+        '<div class="x1Hp ' + (p.isDead ? '' : hpClass(hp)) + '">' + (p.isDead ? '—' : hp) + '</div>' +
+        '<div class="x1Main">' +
+          '<div class="x1Row"><span class="x1Nick" style="font-size:' + nameSize(p.nick, 29, [14, 20], [24, 20]) + 'px">' + esc(p.nick) + '</span></div>' +
+          '<div class="x1Row"><span class="x1Weapon">' + (wIcon && !p.isDead ? '<img class="ic" src="' + wIcon + '" alt="">' : '') + ammo + '</span>' +
+            '<span class="x1Gear">' + gear + '</span></div>' +
+          '<div class="x1Row"><span class="x1Stats"><span>K <b>' + (p.kills || 0) + '</b></span><span>D <b>' + (p.deaths || 0) + '</b></span>' +
+            '<span class="money">' + fmtMoney(p.money) + '</span></span></div>' +
+        '</div>' +
+        '<i class="x1HpBar" style="width:' + hp + '%"></i>';
+      if(panel.dataset.html !== html){ panel.dataset.html = html; panel.innerHTML = html; } // não recria à toa (ícones piscariam)
+    });
   }
 
   // =====================================================================
@@ -2244,7 +2506,26 @@
     } catch(e){}
   }
 
+  // O CS2 manda nomes com caracteres especiais codificados em HTML
+  // ("&quot;30FPS&quot;"); volta pro texto original.
+  function decodeName(n){
+    if(!n || n.indexOf('&') === -1) return n;
+    return n.replace(/&#x([0-9a-f]+);/gi, function(m, h){ return String.fromCodePoint(parseInt(h, 16)); })
+      .replace(/&#(\d+);/g, function(m, d){ return String.fromCodePoint(parseInt(d, 10)); })
+      .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  }
+
+  // nomes longos ganham letra menor: até limits[0] caracteres = base;
+  // até limits[1] = sizes[0]; acima disso = sizes[1]
+  function nameSize(name, base, limits, sizes){
+    var n = (name || '').length;
+    return n <= limits[0] ? base : n <= limits[1] ? sizes[0] : sizes[1];
+  }
+
   function render(state){
+    (state.players || []).forEach(function(p){ p.nick = decodeName(p.nick); });
+    if(state.spectatedPlayer) state.spectatedPlayer.nick = decodeName(state.spectatedPlayer.nick);
+    if(state.scoreboard){ state.scoreboard.ct.teamName = decodeName(state.scoreboard.ct.teamName); state.scoreboard.t.teamName = decodeName(state.scoreboard.t.teamName); }
     fillPartialState(state);
     updateKillFeed(state);
     updateLayout(state.players || [], state);
@@ -2256,7 +2537,14 @@
     $('scoreT').textContent = scoreR;
     $('scoreCT').className = scoreL >= scoreR ? 'lead' : 'trail';
     $('scoreT').className = scoreR >= scoreL ? 'lead' : 'trail';
-    currentSeries = state.series || null;
+    var tcfg = state.teams || {};
+    x1Cfg = { on: !!tcfg.x1, radar: tcfg.x1Radar !== false, series: tcfg.x1Series !== false };
+    $('stage').classList.toggle('x1', x1Cfg.on);
+    $('stage').classList.toggle('noRadar', x1Cfg.on && !x1Cfg.radar);
+    (state.players || []).forEach(function(p){
+      if((p.team === 'CT' || p.team === 'T') && p.nick) x1Nicks[sideKey(p.team)] = p.nick;
+    });
+    currentSeries = (x1Cfg.on && !x1Cfg.series) ? null : (state.series || null);
     applyTeams(state.teams, { ct: ct.teamName, tr: t.teamName });
     renderSeriesPanel(state);
     renderMatchWin(state);
@@ -2318,6 +2606,7 @@
     // sem mapa nenhum ainda (pacote parcial logo após abrir): não decide nada
     if(mapKey && (mapKey !== lastDeathResetKey || roundWentBack || enteredFreezetime || overToLive)){
       deadThisRound = {};
+      deathSeenAt = {};
       deathPos = {};
       lastAlivePos = {};
       lastDeathResetKey = mapKey;
@@ -2343,7 +2632,10 @@
       // durante o warmup os jogadores podem reportar vida 0 momentaneamente
       // antes de spawnar de verdade - ignora pra não marcar todo mundo
       // como morto por engano logo que a HUD/partida reinicia.
-      if(phase !== 'warmup' && p.health <= 0) deadThisRound[p.steamId] = true;
+      if(phase !== 'warmup' && p.health <= 0){
+        if(!deadThisRound[p.steamId]) deathSeenAt[p.steamId] = performance.now(); // morreu agora
+        deadThisRound[p.steamId] = true;
+      }
       p.isDead = !!deadThisRound[p.steamId];
 
       lastNick[p.steamId] = p.nick;
@@ -2391,6 +2683,8 @@
     if(state.map) saveDeaths(state);
     updateUtility(state.grenades || [], state.map);
     renderSpectator(state.spectatedPlayer || null);
+    x1Left = x1PlayerOf(ctPlayers); x1Right = x1PlayerOf(tPlayers);
+    renderX1(state, ctPlayers, tPlayers);
     renderCam(state);
     renderAlive(state, ctPlayers, tPlayers);
     renderBuyInfo(state, ctPlayers, tPlayers);
@@ -2409,6 +2703,8 @@
     $('stage').classList.remove('paused');
     $('stage').classList.remove('showSeries');
     $('camBox').classList.remove('show');
+    ['x1PanelLeft', 'x1PanelRight'].forEach(function(id){ $(id).innerHTML = ''; $(id).dataset.html = ''; });
+    x1Nicks = { ct: '', tr: '' };
     $('buyInfoCT').classList.remove('show'); $('buyInfoT').classList.remove('show');
     // placar / cabeçalho
     $('scoreCT').textContent = '0'; $('scoreT').textContent = '0';
@@ -2432,7 +2728,7 @@
     defuseTracker = { active: false, startedAt: 0, total: 0, endAt: 0 };
 
     // morte persistente
-    lastDeathResetKey = null; lastDeathRound = null; deadThisRound = {}; deathPos = {}; lastAlivePos = {};
+    lastDeathResetKey = null; lastDeathRound = null; deadThisRound = {}; deathSeenAt = {}; deathPos = {}; lastAlivePos = {};
     lastGoodMap = null; lastGoodRound = null; deathsRestored = false;
     clearUtility();
     lastPlayerData = {};

@@ -97,6 +97,13 @@
   .camTable button{padding:7px 10px;font-size:10px}
   .camEmpty{color:var(--steel);font-size:17px;padding:8px 0}
 
+  /* modo X1 */
+  .x1Bar{border-top:4px solid var(--bone)}
+  .x1Opts{display:flex;gap:18px;flex-wrap:wrap}
+  .x1Opts.off{opacity:.35;pointer-events:none}
+  .x1Hint{font-size:16px;color:var(--steel);flex-basis:100%}
+  body.x1 .coachField{display:none}
+
   .help{margin-top:28px;color:var(--steel);font-size:17px;line-height:1.45}
   .help b{color:var(--bone);font-weight:600}
 </style>
@@ -121,35 +128,50 @@
     </label>
   </div>
 
+  <div class="seriesBar x1Bar">
+    <label class="check" title="Para campeonatos 1 contra 1: um card por jogador nos cantos da tela e o nome do jogador no placar">
+      <input type="checkbox" id="x1"> Modo X1 (1 contra 1)
+    </label>
+    <div class="x1Opts" id="x1Opts">
+      <label class="check"><input type="checkbox" id="x1Radar"> Mostrar radar</label>
+      <label class="check"><input type="checkbox" id="x1Series"> Mostrar série de mapas (picks e bans)</label>
+    </div>
+    <div class="x1Hint">No X1 o placar mostra o nick do jogador (ou o nome que você digitar abaixo) e a imagem vira o brasão dele.</div>
+  </div>
+
   <div class="teams">
     <section class="team ct">
-      <h2>Time no lado CT agora</h2>
-      <label for="ctName">Nome</label>
-      <input type="text" id="ctName" maxlength="40" placeholder="COUNTER" autocomplete="off">
-      <label for="ctCoach">Coach</label>
-      <input type="text" id="ctCoach" maxlength="40" placeholder="(opcional)" autocomplete="off">
-      <label>Logo</label>
+      <h2 data-team="Time no lado CT agora" data-x1="Jogador no lado CT agora">Time no lado CT agora</h2>
+      <label for="ctName" data-team="Nome" data-x1="Nome no placar (vazio = nick do jogo)">Nome</label>
+      <input type="text" id="ctName" maxlength="40" placeholder="COUNTER" data-team="COUNTER" data-x1="NICK DO JOGO" autocomplete="off">
+      <div class="coachField">
+        <label for="ctCoach">Coach</label>
+        <input type="text" id="ctCoach" maxlength="40" placeholder="(opcional)" autocomplete="off">
+      </div>
+      <label data-team="Logo" data-x1="Brasão">Logo</label>
       <div class="logoRow">
         <div class="logoBox" id="ctLogoBox">CT</div>
         <div class="logoBtns">
           <label class="fileBtn">Escolher imagem<input type="file" id="ctFile" accept="image/*"></label>
-          <button type="button" id="ctClearLogo">Remover logo</button>
+          <button type="button" id="ctClearLogo" data-team="Remover logo" data-x1="Remover brasão">Remover logo</button>
         </div>
       </div>
     </section>
 
     <section class="team tr">
-      <h2>Time no lado TR agora</h2>
-      <label for="tName">Nome</label>
-      <input type="text" id="tName" maxlength="40" placeholder="TERRORIST" autocomplete="off">
-      <label for="tCoach">Coach</label>
-      <input type="text" id="tCoach" maxlength="40" placeholder="(opcional)" autocomplete="off">
-      <label>Logo</label>
+      <h2 data-team="Time no lado TR agora" data-x1="Jogador no lado TR agora">Time no lado TR agora</h2>
+      <label for="tName" data-team="Nome" data-x1="Nome no placar (vazio = nick do jogo)">Nome</label>
+      <input type="text" id="tName" maxlength="40" placeholder="TERRORIST" data-team="TERRORIST" data-x1="NICK DO JOGO" autocomplete="off">
+      <div class="coachField">
+        <label for="tCoach">Coach</label>
+        <input type="text" id="tCoach" maxlength="40" placeholder="(opcional)" autocomplete="off">
+      </div>
+      <label data-team="Logo" data-x1="Brasão">Logo</label>
       <div class="logoRow">
         <div class="logoBox" id="tLogoBox">TR</div>
         <div class="logoBtns">
           <label class="fileBtn">Escolher imagem<input type="file" id="tFile" accept="image/*"></label>
-          <button type="button" id="tClearLogo">Remover logo</button>
+          <button type="button" id="tClearLogo" data-team="Remover logo" data-x1="Remover brasão">Remover logo</button>
         </div>
       </div>
     </section>
@@ -167,7 +189,7 @@
   <section class="cams">
     <h2>Câmeras dos jogadores (VDO.Ninja)</h2>
     <div class="camOpts">
-      <label class="check"><input type="checkbox" id="camEnabled"> Mostrar a câmera do jogador em destaque na HUD</label>
+      <label class="check"><input type="checkbox" id="camEnabled"> <span data-team="Mostrar a câmera do jogador em destaque na HUD" data-x1="Mostrar a câmera de cada jogador no card dele">Mostrar a câmera do jogador em destaque na HUD</span></label>
       <div><label for="camPassword">Senha da sala (opcional)</label><input type="text" id="camPassword" maxlength="60" placeholder="ex: minhaliga2026" autocomplete="off"></div>
     </div>
     <table class="camTable">
@@ -199,7 +221,8 @@
   var $ = function(id){ return document.getElementById(id); };
 
   // estado do formulário: side 'ct' | 't'
-  var form = { forcePause: false, ct: { name: '', logo: '', coach: '' }, t: { name: '', logo: '', coach: '' } };
+  var form = { forcePause: false, x1: false, x1Radar: true, x1Series: true, ct: { name: '', logo: '', coach: '' }, t: { name: '', logo: '', coach: '' } };
+  var liveNicks = { ct: '', t: '' }; // nicks do jogo agora (prévia no X1)
   var dirty = false; // editou e ainda não salvou: não sobrescreve com o servidor
 
   function setMsg(text, kind){
@@ -229,13 +252,24 @@
 
     });
     $('forcePause').checked = form.forcePause;
+    $('x1').checked = form.x1;
+    $('x1Radar').checked = form.x1Radar;
+    $('x1Series').checked = form.x1Series;
+    $('x1Opts').className = 'x1Opts' + (form.x1 ? '' : ' off');
+    // textos do formulário mudam no modo X1 (time -> jogador, logo -> brasão)
+    document.body.classList.toggle('x1', form.x1);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-x1]'), function(el){
+      var t = el.getAttribute(form.x1 ? 'data-x1' : 'data-team');
+      if(el.tagName === 'INPUT') el.placeholder = t; else el.textContent = t;
+    });
     renderPreview();
   }
 
   function renderPreview(){
     [['ct', 'pvCtTag', 'pvCtName', 'CT', 'COUNTER'], ['t', 'pvTrTag', 'pvTrName', 'TR', 'TERRORIST']].forEach(function(r){
       var side = r[0], tag = $(r[1]), cls = side === 'ct' ? 'ct' : 'tr';
-      $(r[2]).textContent = form[side].name.trim() || r[4];
+      // no X1, sem nome digitado o placar usa o nick do jogo
+      $(r[2]).textContent = form[side].name.trim() || (form.x1 && liveNicks[side]) || (form.x1 ? 'NICK DO JOGO' : r[4]);
       tag.innerHTML = '';
       if(form[side].logo){
         tag.className = 'pTag logo ' + cls;
@@ -249,6 +283,9 @@
 
   function fromServer(data){
     form.forcePause = !!data.forcePause;
+    form.x1 = !!data.x1;
+    form.x1Radar = data.x1Radar !== false;
+    form.x1Series = data.x1Series !== false;
     ['ct', 't'].forEach(function(side){
       var d = data[side] || {};
       form[side] = { name: d.name || '', logo: d.logo || '', coach: d.coach || '' };
@@ -281,6 +318,13 @@
       return res.status === 200 ? res.json() : null;
     }).then(function(s){
       if(s && s.scoreboard) $('pvScore').textContent = s.scoreboard.ct.score + ' : ' + s.scoreboard.t.score;
+      // nick de quem está em cada lado (prévia do placar no modo X1)
+      var nicks = { ct: '', t: '' };
+      ((s && s.players) || []).forEach(function(p){
+        if(p.team === 'CT' && !nicks.ct) nicks.ct = p.nick || '';
+        if(p.team === 'T' && !nicks.t) nicks.t = p.nick || '';
+      });
+      if(nicks.ct !== liveNicks.ct || nicks.t !== liveNicks.t){ liveNicks = nicks; renderPreview(); }
     }).catch(function(){});
   }
 
@@ -335,6 +379,15 @@
     });
   });
 
+  ['x1', 'x1Radar', 'x1Series'].forEach(function(id){
+    $(id).addEventListener('change', function(){
+      form[id] = this.checked;
+      dirty = true;
+      renderForm();
+      setMsg('Clique em Salvar pra aplicar na HUD.');
+    });
+  });
+
   $('forcePause').addEventListener('change', function(){
     form.forcePause = this.checked;
     dirty = true;
@@ -344,6 +397,9 @@
   $('saveBtn').addEventListener('click', function(){
     var body = {
       forcePause: form.forcePause,
+      x1: form.x1,
+      x1Radar: form.x1Radar,
+      x1Series: form.x1Series,
       ct: { name: form.ct.name.trim(), logo: form.ct.logo, coach: form.ct.coach.trim() },
       t: { name: form.t.name.trim(), logo: form.t.logo, coach: form.t.coach.trim() }
     };
