@@ -485,6 +485,7 @@
   .kf img.w{height:20px;width:auto;max-width:78px;object-fit:contain;filter:brightness(0) invert(1)}
   .kf .mod{display:flex;align-items:center}
   .kf .mod svg{width:20px;height:20px}
+  .kf .mod img.hsImg{height:20px;width:auto;max-width:28px;object-fit:contain} /* icons/headshot.svg|png, nas cores do arquivo */
   .kf .mod.world svg{fill:var(--bad)}
 
   /* ---------------- mira no centro da tela ---------------- */
@@ -1185,7 +1186,9 @@
   // o intervalo. Fica salva no navegador (F5 não apaga o fogo).
   var FIRE_STREAK = 5;
   var STREAK_KEY = 'cs2hud.streak';
-  var streak = { map: null, pos: null, count: 0, played: 0 };
+  // halfStart = 1º round do tempo atual (a sequência não passa da troca de lado)
+  // left = lado da tela esquerda na última vez (muda = os times trocaram de lado)
+  var streak = { map: null, pos: null, count: 0, played: 0, halfStart: 1, left: null };
   try { var savedStreak = JSON.parse(localStorage.getItem(STREAK_KEY) || 'null'); if(savedStreak) streak = savedStreak; } catch(e){}
   function saveStreak(){ try { localStorage.setItem(STREAK_KEY, JSON.stringify(streak)); } catch(e){} }
 
@@ -1200,9 +1203,19 @@
   function checkStreakReset(map, played){
     if(!map) return;
     if(streak.map !== map || played < streak.played){
-      streak = { map: map, pos: null, count: 0, played: played };
+      streak = { map: map, pos: null, count: 0, played: played, halfStart: 1, left: null };
       saveStreak();
     }
+  }
+  // troca de lado (fim de tempo / prorrogação): a sequência recomeça do zero.
+  // Detectada pelos próprios jogadores mudando de lado, então vale pra
+  // qualquer formato (MR12, MR8 do X1...).
+  function checkSideSwap(played){
+    if(streak.left && streak.left !== LAYOUT.left){
+      streak.pos = null; streak.count = 0;
+      streak.halfStart = played + 1;
+    }
+    if(streak.left !== LAYOUT.left){ streak.left = LAYOUT.left; saveStreak(); }
   }
 
   var fire = { L: null, R: null, running: false };
@@ -1287,9 +1300,9 @@
     else { fire.running = false; fireLast = 0; }
   }
   // Sequência atual pelo histórico de rounds do jogo (map.round_wins): vale
-  // mesmo abrindo a HUD no meio da partida ou pulando a demo. O lado de cada
-  // round antigo vira posição na tela pela troca de lados (sideParity, a
-  // mesma do painel de histórico). Sem histórico, usa a contagem ao vivo.
+  // mesmo abrindo a HUD no meio da partida ou pulando a demo. Conta só os
+  // rounds do tempo atual (zera a cada troca de lado), então o lado que
+  // venceu cada round é o lado atual do time. Sem histórico, usa a contagem ao vivo.
   function streakFromHistory(state){
     var wins = state.roundWins || [];
     if(!wins.length) return null;
@@ -1301,11 +1314,15 @@
     var phase = (state.roundPhase || '').toLowerCase(), gameOver = (state.phase || '').toLowerCase() === 'gameover';
     var nowParity = sideParity(phase === 'over' || gameOver ? Math.max(1, played) : played + 1);
     var pos = null, count = 0;
-    for(var r = played; r >= 1; r--){
+    // só os rounds do tempo atual: começa na troca de lado vista ao vivo
+    // (vale pra qualquer formato); se a HUD não viu nenhuma troca, usa a
+    // divisão de tempos do MR12
+    var liveHalf = (streak.halfStart || 1) > 1;
+    for(var r = played; r >= Math.max(1, streak.halfStart || 1); r--){
+      if(!liveHalf && sideParity(r) !== nowParity) break;
       var res = results[r];
       if(!res) break; // buraco no histórico: para de contar
-      var sideNow = sideParity(r) === nowParity ? res.side : (res.side === 'ct' ? 'tr' : 'ct');
-      var p = sideNow === LAYOUT.left ? 'L' : 'R';
+      var p = res.side === LAYOUT.left ? 'L' : 'R';
       if(pos === null) pos = p;
       if(p !== pos) break;
       count++;
@@ -1353,6 +1370,19 @@
   var KF_MAX = 5;          // linhas na tela
   var KF_TTL_MS = 6000;    // quanto tempo cada linha fica
   var KF_PAIR_MS = 700;    // janela pra juntar "alguém matou" com "alguém morreu"
+  // Ícone de headshot personalizado: icons/headshot.svg (ou .png). Sem o
+  // arquivo, usa o desenho padrão (KF_ICONS.hs).
+  var kfHsImg = null;
+  (function(){
+    var tries = ['headshot.svg', 'headshot.png'];
+    (function next(i){
+      if(i >= tries.length) return;
+      var img = new Image();
+      img.onload = function(){ kfHsImg = ICONS_PATH + tries[i]; };
+      img.onerror = function(){ next(i + 1); };
+      img.src = ICONS_PATH + tries[i];
+    })(0);
+  })();
   var KF_ICONS = {
     hs: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="9.5" r="6"/><path d="M6.5 21c.6-2.6 2.9-4.3 5.5-4.3s4.9 1.7 5.5 4.3"/><circle cx="12" cy="9.5" r="2" fill="#fff" stroke="none"/></svg>',
     blind: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/><path d="M4 20L20 4"/></svg>',
@@ -1483,7 +1513,7 @@
       if(src) html += '<img class="w" src="' + src + '" alt="">';
       if(e.blind) html += '<span class="mod" title="matou cego">' + KF_ICONS.blind + '</span>';
       if(e.smoke) html += '<span class="mod" title="através da fumaça">' + KF_ICONS.smoke + '</span>';
-      if(e.hs) html += '<span class="mod" title="headshot">' + KF_ICONS.hs + '</span>';
+      if(e.hs) html += '<span class="mod" title="headshot">' + (kfHsImg ? '<img class="hsImg" src="' + kfHsImg + '" alt="">' : KF_ICONS.hs) + '</span>';
     } else {
       html += '<span class="mod world" title="morreu sozinho">' + RH_ICONS.elimination + '</span>';
     }
@@ -2779,6 +2809,7 @@
     }
 
     checkStreakReset(state.map, ct.score + t.score);
+    checkSideSwap(ct.score + t.score);
     trackRounds(ct.score, t.score);
     renderFire(state);
     renderRoundHistory(state);
