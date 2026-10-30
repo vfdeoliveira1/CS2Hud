@@ -27,12 +27,15 @@
 
   /* ---------------- placar central ---------------- */
   .spine{position:absolute;top:0;left:50%;transform:translateX(-50%);
-         width:640px;display:flex;flex-direction:column;align-items:center}
+         width:680px;display:flex;flex-direction:column;align-items:center}
   .spine-main{width:100%;height:88px;background:var(--bg);backdrop-filter:blur(6px);
     border-bottom:1px solid var(--line);
-    display:grid;grid-template-columns:1fr 220px 1fr;align-items:center;
+    display:grid;grid-template-columns:1fr 176px 1fr;align-items:center;
     clip-path:polygon(0 0,100% 0,100% calc(100% - 28px),calc(100% - 28px) 100%,28px 100%,0 calc(100% - 28px))}
   .side{display:flex;align-items:center;gap:10px;padding:0 20px}
+  /* quadrados dos mapas vencidos colados nos números (lado de dentro sem folga) */
+  .spine-main .side{min-width:0}
+  .spine-main .side.left{padding-right:8px} .spine-main .side.right{padding-left:8px}
   .side.right{flex-direction:row-reverse}
   .tag{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
        letter-spacing:.14em;padding:4px 8px 3px;border:1px solid currentColor;line-height:1}
@@ -97,13 +100,15 @@
   .roundWin .rwName{font-family:'Anton',sans-serif;font-size:40px;letter-spacing:.03em;text-transform:uppercase}
   .roundWin .rwSub{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;letter-spacing:.22em;
     text-transform:uppercase;margin-top:6px;opacity:.8}
-  .lbl{font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .lbl{font-size:28px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;line-height:1;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  /* nome centralizado no espaço entre o CT/TR (ou logo) e os quadrados dos mapas */
+  .spine-main .lbl{flex:1;text-align:center}
   /* X1: nick do jogador no placar pode ser longo -> até 2 linhas, letra menor */
-  #stage.x1 .spine-main{grid-template-columns:1fr 200px 1fr}
-  #stage.x1 .spine-main .side{padding:0 16px;min-width:0}
-  #stage.x1 .lbl{line-height:1.05;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  #stage.x1 .spine-main .side.left{padding-left:16px} #stage.x1 .spine-main .side.right{padding-right:16px}
+  #stage.x1 .lbl{line-height:1.05;min-width:0;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
     overflow:hidden;overflow-wrap:break-word}
-  #stage.x1 .side.right .lbl{text-align:right}
+  #stage.x1 .side.right .lbl{text-align:center}
   .midCol{display:flex;align-items:center;justify-content:center;width:100%;height:100%;position:relative}
   .scoreCol{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
   .roundLbl{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
@@ -126,6 +131,21 @@
   .spine-main.defusing #defuseBar{display:block}
   .spine-main.defusing .scoreCol{transform:translateY(-8px)}
   .score .lead{color:#fff} .score .trail{color:var(--steel)}
+  /* ---------------- time "pegando fogo" (5+ rounds ganhos seguidos) ---------------- */
+  /* letras em brasa (degradê que sobe + brilho tremulando) e chamas num
+     canvas atrás do nome, subindo até o topo do placar */
+  .spine-main .side{position:relative}
+  .spine-main .lbl{position:relative;z-index:2}
+  .lbl.onFire{
+    background:linear-gradient(0deg,#ff2a00 0%,#ff7a00 35%,#ffd200 70%,#fff6c8 100%);background-size:100% 220%;
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    animation:fireText 1.1s linear infinite, fireGlow 1.6s ease-in-out infinite}
+  @keyframes fireText{from{background-position:0 0}to{background-position:0 -220%}}
+  @keyframes fireGlow{
+    0%,100%{filter:drop-shadow(0 0 4px rgba(255,120,0,.85)) drop-shadow(0 -2px 10px rgba(255,60,0,.55))}
+    35%    {filter:drop-shadow(0 0 6px rgba(255,170,0,.95)) drop-shadow(0 -4px 16px rgba(255,80,0,.7))}
+    60%    {filter:drop-shadow(0 0 3px rgba(255,100,0,.8)) drop-shadow(0 -1px 8px rgba(255,40,0,.5))}}
+  .fireCanvas{position:absolute;pointer-events:none;z-index:1;mix-blend-mode:screen}
   /* ---------------- jogadores vivos (abaixo do placar) ---------------- */
   /* CT à esquerda, TR à direita: número + 5 bolinhas (apagada = morto).
      Some no tempo de compra, quando o histórico de rounds ocupa o lugar. */
@@ -207,6 +227,13 @@
         font-family:'JetBrains Mono',monospace;font-weight:700;font-size:21px}
   .hpBox.good{color:var(--good)} .hpBox.warn{color:var(--warn)} .hpBox.bad{color:var(--bad)}
   .card.dead .hpBox{color:var(--steel)}
+  /* jogador sendo espectado agora: câmera ao lado do número + moldura.
+     A moldura é um elemento à parte por cima do card (.specFrame), porque
+     o card tem a máscara de vida, que apagaria a borda na parte da vida perdida. */
+  .specCam{flex:none;display:flex;align-items:center}
+  .specCam svg{width:17px;height:17px;fill:#fff;filter:drop-shadow(0 0 1px rgba(0,0,0,.9))}
+  .specFrame{position:absolute;left:0;right:0;pointer-events:none;border:2px solid #fff;
+    box-shadow:0 0 0 1px rgba(0,0,0,.65), 0 0 10px rgba(255,255,255,.35)} /* contorno escuro: aparece até em mapa claro */
   /* morto: sem a área da arma (ícone 72px + 10px de espaço), o card encurta
      esse tanto, continuando colado na borda da tela */
   .card.dead{width:calc(100% - 82px)}
@@ -290,6 +317,9 @@
   /* jogador com a bomba na mão: o próprio ponto dele fica vermelho, mas
       continua mostrando o número. */
   .dot.otherLevel{opacity:.35}
+  /* jogador sendo espectado: ponto maior com borda branca, por cima dos outros */
+  .dot.spectated{width:23px;height:23px;font-size:11px;border:2px solid #fff;z-index:3;
+    box-shadow:0 0 0 1px rgba(0,0,0,.6), 0 0 8px rgba(255,255,255,.6)}
   .dot.bombCarrier{background:#E0201B;border-color:#fff;color:#fff}
     .dot.bombCarrier .dotIcon{display:none}
 
@@ -525,22 +555,19 @@
   #stage.x1 .x1Card{display:flex}
   /* na pausa as câmeras continuam, logo acima da tela de pausa (o card some) */
   #stage.x1.paused .x1Card{bottom:calc(32px + var(--pauseH, 190px))}
-  #stage.x1.paused .x1Panel, #stage.x1.paused .x1Live{display:none}
+  #stage.x1.paused .x1Panel{display:none}
   .x1Card.ct{--team:var(--ct);--team-soft:rgba(110,158,218,.16)}
   .x1Card.tr{--team:var(--tr);--team-soft:rgba(217,164,65,.16)}
-  .x1Live{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.22em;
-    color:#0b0f14;background:var(--team);padding:3px 7px;margin-bottom:5px;align-self:flex-start;
-    text-transform:uppercase;line-height:1;visibility:hidden}
-  .x1Card.right .x1Live{align-self:flex-end}
-  .x1Card.live .x1Live{visibility:visible}
   .x1Cam{position:relative;display:none;aspect-ratio:16/9;background:#000;overflow:hidden;
     border:1px solid var(--line);border-bottom:none}
   .x1Cam.show{display:block;animation:camIn .35s ease}
   .x1Cam iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
   .x1Panel{position:relative;height:100px;display:grid;grid-template-columns:74px 1fr;background:var(--bg-soft);
     backdrop-filter:blur(5px);overflow:hidden;box-shadow:inset 0 0 0 1px var(--line);transition:box-shadow .3s ease}
-  .x1Card.live .x1Panel{box-shadow:inset 0 0 0 2px var(--team)}
+  /* espectando: mesma marcação dos cards normais (moldura branca + contorno escuro + câmera) */
+  .x1Card.live .x1Panel{box-shadow:inset 0 0 0 2px #fff, 0 0 0 1px rgba(0,0,0,.65), 0 0 10px rgba(255,255,255,.35)}
   .x1Card.dead .x1Panel{opacity:.45}
+  .x1Card .specCam svg{width:22px;height:22px}
   .x1Hp{display:flex;align-items:center;justify-content:center;background:var(--team-soft);border-left:4px solid var(--team);
     font-family:'JetBrains Mono',monospace;font-weight:700;font-size:30px}
   .x1Hp.good{color:var(--good)} .x1Hp.warn{color:var(--warn)} .x1Hp.bad{color:var(--bad)}
@@ -660,12 +687,10 @@
 
   <!-- modo X1: um card por jogador -->
   <div class="x1Card left" id="x1Left">
-    <span class="x1Live">Espectando</span>
     <div class="x1Cam" id="x1CamLeft"></div>
     <div class="x1Panel" id="x1PanelLeft"></div>
   </div>
   <div class="x1Card right" id="x1Right">
-    <span class="x1Live">Espectando</span>
     <div class="x1Cam" id="x1CamRight"></div>
     <div class="x1Panel" id="x1PanelRight"></div>
   </div>
@@ -805,7 +830,8 @@
 
     var dead = !!player.isDead;
     side = sideKey(player.team) || side; // cor = lado em que o jogador está agora
-    card.className = 'card ' + side + (dead ? ' dead' : '');
+    var isSpec = player.steamId === currentSpecId;
+    card.className = 'card ' + side + (dead ? ' dead' : '') + (isSpec ? ' spec' : '');
     // acabou de morrer: anima o card encolhendo. Se o card for recriado no
     // meio da animação, ela continua de onde estava (delay negativo).
     var sinceDeath = dead && deathSeenAt[player.steamId] ? performance.now() - deathSeenAt[player.steamId] : Infinity;
@@ -832,7 +858,9 @@
     var row1 = document.createElement('div'); row1.className = 'cRow';
     var badge = document.createElement('span'); badge.className = 'badge'; badge.textContent = globalIndex;
     var nick = document.createElement('span'); nick.className = 'nick'; nick.textContent = player.nick || '?';
-    row1.appendChild(badge); row1.appendChild(nick);
+    row1.appendChild(badge);
+    if(isSpec){ var cam = document.createElement('span'); cam.className = 'specCam'; cam.title = 'Espectando'; cam.innerHTML = CAM_ICON; row1.appendChild(cam); }
+    row1.appendChild(nick);
     var rk = player.roundKills || 0;
     if(rk > 0){
       var skulls = document.createElement('span'); skulls.className = 'killSkulls';
@@ -887,7 +915,8 @@
   function cardKey(p){
     if(!p) return '-';
     return [p.nick, p.health, !!p.isDead, p.kills, p.assists, p.deaths, p.money, p.roundKills,
-      p.displayWeapon || p.activeWeapon, (p.utility || []).join(','), p.hasArmor, p.hasHelmet, p.hasDefuseKit].join('|');
+      p.displayWeapon || p.activeWeapon, (p.utility || []).join(','), p.hasArmor, p.hasHelmet, p.hasDefuseKit,
+      p.steamId === currentSpecId].join('|');
   }
 
   function renderRoster(container, players, side, offset){
@@ -901,7 +930,18 @@
     for(var i = 0; i < 5; i++){
       renderCard(container, bySlot[offset + i] || null, offset + i, side);
     }
+    // moldura de "espectando" por cima do card (fora da máscara de vida)
+    var spec = container.querySelector('.card.spec:not(.dead)');
+    if(spec){
+      var frame = document.createElement('div');
+      frame.className = 'specFrame';
+      frame.style.top = spec.offsetTop + 'px';
+      frame.style.height = spec.offsetHeight + 'px';
+      container.appendChild(frame);
+    }
   }
+  var currentSpecId = null; // steamId de quem está sendo espectado (cards + radar)
+  var CAM_ICON = '<svg viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h10A1.5 1.5 0 0 1 16 6.5V9l4.3-2.6A1.1 1.1 0 0 1 22 7.3v9.4a1.1 1.1 0 0 1-1.7.9L16 15v2.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 3 17.5z"/></svg>';
 
   // placar do último pacote (pra detectar quem venceu o round -> popup)
   var lastCT = null, lastT = null;
@@ -1136,13 +1176,164 @@
 
   // Detecta o fim de um round pela variação do placar e mostra o popup de
   // vencedor (só pra round que a HUD viu acabar, não logo após abrir/F5).
+  // =====================================================================
+  // TIME EM CHAMAS: 5 rounds ganhos seguidos
+  // =====================================================================
+  // A sequência é contada ao vivo, a cada round ganho (mesma detecção do
+  // popup de vencedor), por POSIÇÃO na tela (L = time da esquerda, R = da
+  // direita), então funciona em qualquer formato (MR12, MR8...) e atravessa
+  // o intervalo. Fica salva no navegador (F5 não apaga o fogo).
+  var FIRE_STREAK = 5;
+  var STREAK_KEY = 'cs2hud.streak';
+  var streak = { map: null, pos: null, count: 0, played: 0 };
+  try { var savedStreak = JSON.parse(localStorage.getItem(STREAK_KEY) || 'null'); if(savedStreak) streak = savedStreak; } catch(e){}
+  function saveStreak(){ try { localStorage.setItem(STREAK_KEY, JSON.stringify(streak)); } catch(e){} }
+
+  function countStreak(winnerSide, played){
+    var pos = winnerSide === LAYOUT.left ? 'L' : 'R';
+    if(streak.pos === pos) streak.count++;
+    else { streak.pos = pos; streak.count = 1; }
+    streak.played = played;
+    saveStreak();
+  }
+  // mapa novo ou partida reiniciada (placar voltou): zera
+  function checkStreakReset(map, played){
+    if(!map) return;
+    if(streak.map !== map || played < streak.played){
+      streak = { map: map, pos: null, count: 0, played: played };
+      saveStreak();
+    }
+  }
+
+  var fire = { L: null, R: null, running: false };
+  function fireSide(pos){
+    if(fire[pos]) return fire[pos];
+    var lbl = $(pos === 'L' ? 'ctLabel' : 'trLabel');
+    var canvas = document.createElement('canvas');
+    canvas.className = 'fireCanvas';
+    lbl.parentNode.appendChild(canvas);
+    fire[pos] = { lbl: lbl, canvas: canvas, ctx: canvas.getContext('2d'), on: false, parts: [], embers: [],
+      w: 0, h: 0, textW: 0, textH: 0, padTop: 0, layoutAt: 0, acc: 0 };
+    return fire[pos];
+  }
+  var FIRE_PAD_X = 12, FIRE_PAD_BOTTOM = 6;
+  function fireLayout(f){
+    var range = document.createRange(); range.selectNodeContents(f.lbl);
+    var r = range.getBoundingClientRect(), side = f.lbl.parentNode.getBoundingClientRect();
+    if(!r.width) r = f.lbl.getBoundingClientRect();
+    var main = document.querySelector('.spine-main').getBoundingClientRect();
+    var k = main.width / (main.width ? $('stage').querySelector('.spine-main').offsetWidth : 1) || 1; // escala do palco
+    f.textW = r.width / k; f.textH = r.height / k;
+    f.padTop = Math.max(10, (r.top - main.top) / k); // as chamas sobem até o topo do placar
+    f.w = f.textW + FIRE_PAD_X * 2; f.h = f.textH + f.padTop + FIRE_PAD_BOTTOM;
+    f.canvas.style.left = ((r.left - side.left) / k - FIRE_PAD_X) + 'px';
+    f.canvas.style.top = ((r.top - side.top) / k - f.padTop) + 'px';
+    f.canvas.style.width = f.w + 'px'; f.canvas.style.height = f.h + 'px';
+    var dpr = Math.min(2, (window.devicePixelRatio || 1) * k);
+    f.canvas.width = Math.max(1, Math.round(f.w * dpr)); f.canvas.height = Math.max(1, Math.round(f.h * dpr));
+    f.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function fireColor(t, a){ // t: 0 nasceu -> 1 sumiu (branco-amarelo -> laranja -> vermelho)
+    var r, g, b;
+    if(t < 0.2){ r = 255; g = 245 - t * 300; b = 180 - t * 800; }
+    else if(t < 0.55){ r = 255; g = 185 - (t - 0.2) * 330; b = 20; }
+    else { r = 255 - (t - 0.55) * 250; g = 70 - (t - 0.55) * 120; b = 15; }
+    return 'rgba(' + Math.round(r) + ',' + Math.max(0, Math.round(g)) + ',' + Math.max(0, Math.round(b)) + ',' + a.toFixed(3) + ')';
+  }
+  var fireLast = 0;
+  function fireLoop(now){
+    var dt = fireLast ? Math.min(50, now - fireLast) / 16.67 : 1; fireLast = now;
+    var alive = false;
+    ['L', 'R'].forEach(function(pos){
+      var f = fire[pos]; if(!f) return;
+      if(f.on && now - f.layoutAt > 500){ fireLayout(f); f.layoutAt = now; } // nome pode mudar
+      if(f.on){
+        f.acc += f.textW / 16 * dt;
+        while(f.acc >= 1){
+          f.acc--;
+          var x = FIRE_PAD_X + Math.random() * f.textW, y = f.padTop + f.textH * (0.05 + Math.random() * 0.4);
+          f.parts.push({ x: x, y: y, vx: (Math.random() - 0.5) * 0.3, vy: -(0.5 + Math.random() * 0.8),
+            r: 3 + Math.random() * 3.5, life: 0, max: 24 + Math.random() * 22, sway: Math.random() * 6.28 });
+          if(Math.random() < 0.06) f.embers.push({ x: x, y: y, vx: (Math.random() - 0.5) * 0.8, vy: -(1 + Math.random() * 1.3), life: 0, max: 40 + Math.random() * 30 });
+        }
+      }
+      var ctx = f.ctx;
+      ctx.clearRect(0, 0, f.w, f.h);
+      ctx.globalCompositeOperation = 'lighter';
+      for(var i = f.parts.length - 1; i >= 0; i--){
+        var p = f.parts[i]; p.life += dt;
+        var t = p.life / p.max;
+        if(t >= 1){ f.parts.splice(i, 1); continue; }
+        p.sway += 0.12 * dt; p.x += (p.vx + Math.sin(p.sway) * 0.25) * dt; p.y += p.vy * dt;
+        var rad = p.r * (1 - t * 0.75), alpha = (t < 0.1 ? t / 0.1 : 1 - (t - 0.1) / 0.9) * 0.38;
+        var g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rad);
+        g.addColorStop(0, fireColor(t, alpha)); g.addColorStop(1, fireColor(t, 0));
+        ctx.fillStyle = g;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.scale(0.75, 1.5); ctx.translate(-p.x, -p.y);
+        ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      }
+      for(var j = f.embers.length - 1; j >= 0; j--){
+        var e = f.embers[j]; e.life += dt;
+        var te = e.life / e.max;
+        if(te >= 1 || e.y < 1){ f.embers.splice(j, 1); continue; }
+        e.x += (e.vx + Math.sin(e.life * 0.3) * 0.3) * dt; e.y += e.vy * dt;
+        ctx.fillStyle = 'rgba(255,' + Math.round(200 - te * 140) + ',60,' + ((1 - te) * (0.6 + Math.random() * 0.4)).toFixed(3) + ')';
+        ctx.fillRect(e.x, e.y, 1.6, 1.6);
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      if(f.on || f.parts.length || f.embers.length) alive = true;
+    });
+    if(alive) requestAnimationFrame(fireLoop);
+    else { fire.running = false; fireLast = 0; }
+  }
+  // Sequência atual pelo histórico de rounds do jogo (map.round_wins): vale
+  // mesmo abrindo a HUD no meio da partida ou pulando a demo. O lado de cada
+  // round antigo vira posição na tela pela troca de lados (sideParity, a
+  // mesma do painel de histórico). Sem histórico, usa a contagem ao vivo.
+  function streakFromHistory(state){
+    var wins = state.roundWins || [];
+    if(!wins.length) return null;
+    var results = {};
+    wins.forEach(function(w){ results[w.round] = parseRoundResult(w.result); });
+    var sb = state.scoreboard, played = sb.ct.score + sb.t.score;
+    // lados atuais dos jogadores: no fim do round (e do jogo) ainda são os do
+    // round que acabou; no freezetime/round seguinte, os do próximo round
+    var phase = (state.roundPhase || '').toLowerCase(), gameOver = (state.phase || '').toLowerCase() === 'gameover';
+    var nowParity = sideParity(phase === 'over' || gameOver ? Math.max(1, played) : played + 1);
+    var pos = null, count = 0;
+    for(var r = played; r >= 1; r--){
+      var res = results[r];
+      if(!res) break; // buraco no histórico: para de contar
+      var sideNow = sideParity(r) === nowParity ? res.side : (res.side === 'ct' ? 'tr' : 'ct');
+      var p = sideNow === LAYOUT.left ? 'L' : 'R';
+      if(pos === null) pos = p;
+      if(p !== pos) break;
+      count++;
+    }
+    return pos ? { pos: pos, count: count } : null;
+  }
+
+  // liga/desliga o fogo de cada lado da tela (chamado a cada render)
+  function renderFire(state){
+    var cur = (state && streakFromHistory(state)) || streak;
+    ['L', 'R'].forEach(function(pos){
+      var on = cur.pos === pos && cur.count >= FIRE_STREAK;
+      if(!on && !fire[pos]) return;
+      var f = fireSide(pos);
+      if(on && !f.on){ fireLayout(f); f.layoutAt = performance.now(); }
+      f.on = on;
+      f.lbl.classList.toggle('onFire', on);
+    });
+    if(!fire.running && ((fire.L && fire.L.on) || (fire.R && fire.R.on))){ fire.running = true; requestAnimationFrame(fireLoop); }
+  }
+
   function trackRounds(ct, t){
     var winner = null;
     if(roundsPrimed && lastCT !== null){
       if(ct - lastCT === 1 && t === lastT) winner = 'ct';
       else if(t - lastT === 1 && ct === lastCT) winner = 'tr';
     }
-    if(winner) showRoundWinner(winner, ct + t);
+    if(winner){ showRoundWinner(winner, ct + t); countStreak(winner, ct + t); }
     roundsPrimed = true;
     lastCT = ct; lastT = t;
   }
@@ -1528,7 +1719,8 @@
 
       var lbl = $(pos + 'Label');
       if(lbl.textContent !== name) lbl.textContent = name;
-      var lblSize = x1Cfg.on ? nameSize(name, 22, [10, 16], [18, 16]) + 'px' : ''; // só o X1 diminui a letra
+      // nome longo diminui a letra pra caber (no X1 ainda pode usar 2 linhas)
+      var lblSize = (x1Cfg.on ? nameSize(name, 28, [10, 16], [22, 18]) : nameSize(name, 28, [9, 12], [24, 20])) + 'px';
       if(lbl.style.fontSize !== lblSize) lbl.style.fontSize = lblSize;
 
       // logo no lugar do "CT"/"TR" - só mexe no DOM se mudou (senão a
@@ -1989,7 +2181,8 @@
       var html =
         '<div class="x1Hp ' + (p.isDead ? '' : hpClass(hp)) + '">' + (p.isDead ? '—' : hp) + '</div>' +
         '<div class="x1Main">' +
-          '<div class="x1Row"><span class="x1Nick" style="font-size:' + nameSize(p.nick, 29, [14, 20], [24, 20]) + 'px">' + esc(p.nick) + '</span></div>' +
+          '<div class="x1Row">' + (specId && p.steamId === specId ? '<span class="specCam" title="Espectando">' + CAM_ICON + '</span>' : '') +
+            '<span class="x1Nick" style="font-size:' + nameSize(p.nick, 29, [14, 20], [24, 20]) + 'px">' + esc(p.nick) + '</span></div>' +
           '<div class="x1Row"><span class="x1Weapon">' + (wIcon && !p.isDead ? '<img class="ic" src="' + wIcon + '" alt="">' : '') + ammo + '</span>' +
             '<span class="x1Gear">' + gear + '</span></div>' +
           '<div class="x1Row"><span class="x1Stats"><span>K <b>' + (p.kills || 0) + '</b></span><span>D <b>' + (p.deaths || 0) + '</b></span>' +
@@ -2237,6 +2430,7 @@
         slot.iconEl.style.display = 'none';
       }
       if(onOtherLevel(worldPos.z, mapName)) slot.el.className += ' otherLevel';
+      if(!p.isDead && spectated && String(p.steamId) === String(spectated.steamId)) slot.el.className += ' spectated';
       seen[p.hudIndex] = true;
     });
 
@@ -2584,7 +2778,9 @@
       }
     }
 
+    checkStreakReset(state.map, ct.score + t.score);
     trackRounds(ct.score, t.score);
+    renderFire(state);
     renderRoundHistory(state);
 
     var players = state.players || [];
@@ -2676,6 +2872,7 @@
     var ctPlayers = players.filter(function(p){ return typeof p.hudIndex === 'number' && p.hudIndex <= 4; });
     var tPlayers  = players.filter(function(p){ return typeof p.hudIndex === 'number' && p.hudIndex >= 5; });
 
+    currentSpecId = state.spectatedPlayer ? state.spectatedPlayer.steamId : null;
     renderRoster($('rosterCT'), ctPlayers, LAYOUT.left, 0);
     renderRoster($('rosterT'), tPlayers, LAYOUT.right, 5);
 
@@ -2718,6 +2915,7 @@
 
     // histórico de rounds + kill feed
     lastCT = null; lastT = null;
+    ['L', 'R'].forEach(function(pos){ if(fire[pos]){ fire[pos].on = false; fire[pos].lbl.classList.remove('onFire'); } });
     resetKillFeed();
     renderRoundHistory(null);
 
