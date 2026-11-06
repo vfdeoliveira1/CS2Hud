@@ -191,6 +191,18 @@ mp_spectators_max 4
 5. **Mapa:** oficial com `map de_mirage`; da comunidade (Workshop) com `host_workshop_map <id do mapa>`. Mapa da comunidade não tem calibração de radar: desligue o radar no `control.html`.
 6. Se usar `mp_team_timeout_max` diferente de 3, mude `TIMEOUTS_PER_TEAM` no `hud.html`.
 
+### Diretor de câmeras (qual jogador mostrar)
+
+Abra `http://localhost:5000/hud/director.html` (ou o link **diretor de câmeras** no `control.html`), de preferência em outro monitor. Enquanto você espectra, cada jogador vivo recebe uma nota de ação e a página mostra em destaque **qual tecla apertar** no jogo:
+
+- a nota sobe com inimigo perto (e mirando um no outro), atirando, levando dano, abatendo, granada, plantando/desarmando e clutch;
+- **Troque para** (verde): mais ação em outro jogador; **Troque agora** (vermelho): o jogador na câmera morreu; **Câmera certa**: fique onde está;
+- **Mínimo no jogador** evita trocar antes de X segundos; **Sensibilidade** define o quanto a ação precisa ser maior pra sugerir a troca;
+- **Tecla do jogador**: se o número mostrado não bater com a tecla do jogador no jogo, mude para "slot + 1";
+- **Bipe**: som curto quando surgir uma sugestão de troca.
+
+Ele só sugere: quem troca a câmera é você. Precisa do exportador em Node.js (é ele que manda a tecla e a direção de cada jogador).
+
 ### Câmeras dos jogadores (VDO.Ninja)
 
 A HUD pode mostrar a webcam do jogador em destaque, acima da barra "espectando".

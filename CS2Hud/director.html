@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS2 HUD — Diretor de câmeras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#131a22; --panel2:#1a232d;
+    --ct:#6E9EDA; --tr:#D9A441; --bone:#EDEFF2; --steel:#78848F;
+    --line:rgba(237,239,242,.13); --good:#6FCF97; --bad:#E0645A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--bone);font-family:'Barlow Condensed',sans-serif;min-height:100vh;padding:24px 16px}
+  .wrap{max-width:880px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+  h1{font-family:'Anton',sans-serif;font-weight:400;font-size:32px;letter-spacing:.04em}
+  h1 a{color:var(--steel);font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.1em;margin-left:14px;text-decoration:none}
+  h1 a:hover{color:var(--bone)}
+  .status{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;color:var(--steel);display:flex;align-items:center;gap:8px}
+  .status i{width:9px;height:9px;border-radius:50%;background:var(--bad)}
+  .status.on i{background:var(--good)}
+
+  /* sugestão em destaque */
+  .next{background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--steel);
+    display:grid;grid-template-columns:120px 1fr;align-items:center;gap:20px;padding:16px 20px;margin-bottom:10px;min-height:132px}
+  .next.ct{border-left-color:var(--ct)} .next.tr{border-left-color:var(--tr)}
+  .next.switch{animation:pulse 1s ease-in-out infinite}
+  .next.urgent{background:#2d1b1a}
+  @keyframes pulse{0%,100%{background:#1d2a1f}50%{background:#2a3d2c}}
+  .key{font-family:'Anton',sans-serif;font-size:88px;line-height:1;text-align:center;border:2px solid var(--line);padding:6px 0 10px}
+  .next.ct .key{color:var(--ct);border-color:var(--ct)} .next.tr .key{color:var(--tr);border-color:var(--tr)}
+  .what{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.16em;color:var(--steel);text-transform:uppercase}
+  .next.switch .what{color:var(--good)} .next.urgent .what{color:var(--bad)}
+  .nick{font-size:42px;font-weight:700;text-transform:uppercase;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .why{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chip{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;padding:3px 7px;background:var(--panel2);border:1px solid var(--line)}
+  .now{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;color:var(--steel);margin-bottom:18px}
+  .now b{color:var(--bone)}
+  .msg{background:var(--panel);border:1px solid var(--line);padding:16px 20px;margin-bottom:14px;
+    font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--steel);display:none}
+
+  /* todos os jogadores, pela nota */
+  .list{background:var(--panel);border:1px solid var(--line)}
+  .row{display:grid;grid-template-columns:40px 1fr 160px;align-items:center;gap:12px;padding:7px 14px;
+    border-bottom:1px solid var(--line);border-left:4px solid transparent}
+  .row:last-child{border-bottom:none}
+  .row.ct{border-left-color:var(--ct)} .row.tr{border-left-color:var(--tr)}
+  .row.dead{opacity:.3}
+  .row.cur{background:rgba(237,239,242,.06)}
+  .row .k{font-family:'Anton',sans-serif;font-size:26px;text-align:center}
+  .row.ct .k{color:var(--ct)} .row.tr .k{color:var(--tr)}
+  .row .n{font-size:21px;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row .n small{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:400;color:var(--steel);letter-spacing:.04em;text-transform:none;margin-left:8px}
+  .row .n em{font-style:normal;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--bg);background:var(--bone);padding:1px 5px;margin-left:8px;vertical-align:3px}
+  .bar{height:10px;background:var(--panel2);position:relative}
+  .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--steel)}
+  .row.ct .bar i{background:var(--ct)} .row.tr .bar i{background:var(--tr)}
+
+  .opts{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;margin-top:18px;padding:14px 18px;background:var(--panel);border:1px solid var(--line)}
+  .opts label{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);display:flex;align-items:center;gap:8px;cursor:pointer}
+  .opts input[type=number],.opts select{background:var(--panel2);border:1px solid var(--line);color:var(--bone);font-family:'JetBrains Mono',monospace;font-size:13px;padding:5px 6px;width:64px}
+  .opts select{width:auto}
+  .opts input[type=checkbox]{width:16px;height:16px;accent-color:var(--bone)}
+  .help{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--steel);line-height:1.6;margin-top:12px}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    padding:9px 14px;border:1px solid var(--line);background:var(--panel2);color:var(--bone);cursor:pointer}
+  button:hover{border-color:var(--bone)}
+  button.primary{background:var(--bone);color:var(--bg);border-color:var(--bone)}
+  .keyInfo{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--steel)}
+  /* calibração das teclas: você aperta 1, 2, 3... no jogo e a página anota quem apareceu */
+  .calib{background:#1d2430;border:1px solid var(--bone);padding:18px 20px;margin-bottom:10px;display:none}
+  .calib.on{display:block}
+  .calTop{display:grid;grid-template-columns:120px 1fr;gap:20px;align-items:center}
+  .calKey{font-family:'Anton',sans-serif;font-size:88px;line-height:1;text-align:center;border:2px solid var(--bone);padding:6px 0 10px}
+  .calTitle{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.16em;color:var(--good)}
+  .calText{font-size:30px;font-weight:700;line-height:1.15;margin:4px 0 6px}
+  .calSub{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--steel);line-height:1.5}
+  .calBtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .calDone{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .calDone span{font-family:'JetBrains Mono',monospace;font-size:12px;padding:3px 8px;background:var(--panel2);border:1px solid var(--line)}
+  .calDone span b{color:var(--good);margin-right:6px}
+  @media (max-width:560px){
+    .next{grid-template-columns:80px 1fr} .key{font-size:58px} .nick{font-size:30px}
+    .row{grid-template-columns:30px 1fr 70px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>DIRETOR DE CÂMERAS<a href="control.html">← times</a></h1>
+    <div class="status" id="status"><i></i><span id="statusText">Conectando…</span></div>
+  </header>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="next" id="next">
+    <div class="key" id="nextKey">–</div>
+    <div>
+      <div class="what" id="nextWhat">Aguardando</div>
+      <div class="nick" id="nextNick">—</div>
+      <div class="why" id="nextWhy"></div>
+    </div>
+  </div>
+  <div class="calib" id="calib">
+    <div class="calTop">
+      <div class="calKey" id="calKey">1</div>
+      <div>
+        <div class="calTitle">CALIBRANDO AS TECLAS</div>
+        <div class="calText" id="calText">Aperte a tecla 1 no jogo</div>
+        <div class="calSub" id="calSub">Quando a câmera trocar de jogador, a página anota sozinha e passa pra próxima tecla.</div>
+      </div>
+    </div>
+    <div class="calBtns">
+      <button type="button" id="calConfirm">A câmera já está nesse jogador</button>
+      <button type="button" id="calSkip">Essa tecla não vai pra ninguém</button>
+      <button type="button" id="calCancel">Cancelar</button>
+    </div>
+    <div class="calDone" id="calDone"></div>
+  </div>
+  <div class="now" id="now">Câmera agora: <b>—</b></div>
+
+  <div class="list" id="list"></div>
+
+  <div class="opts">
+    <label>Mínimo no jogador <input type="number" id="optHold" min="0" max="15" step="0.5" value="3"> s</label>
+    <label>Sensibilidade
+      <select id="optSens">
+        <option value="30">baixa (troca pouco)</option>
+        <option value="20" selected>média</option>
+        <option value="12">alta (troca muito)</option>
+      </select>
+    </label>
+    <label>Tecla do jogador
+      <select id="optSlot">
+        <option value="0" selected>igual ao slot</option>
+        <option value="1">slot + 1</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="optBeep"> Bipe ao sugerir troca</label>
+  </div>
+  <div class="opts">
+    <button type="button" class="primary" id="calStart">Calibrar teclas</button>
+    <button type="button" id="calClear">Limpar calibração</button>
+    <span class="keyInfo" id="keyInfo"></span>
+  </div>
+  <p class="help">
+    Espectando a partida, cada jogador vivo recebe uma nota de ação: sobe com inimigo perto (mais ainda se um mira no outro),
+    atirando, levando dano, abatendo, granada, plantando/desarmando e clutch. Aperte no jogo a tecla sugerida.
+    Se as teclas não baterem com o jogo, use <b>Calibrar teclas</b> (uma vez por partida): você aperta 1, 2, 3... 0 no jogo
+    e a página aprende qual jogador está em cada tecla. Deixe esta página aberta em outro monitor.
+  </p>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var API_BASE = 'http://localhost:5000';
+  var POLL_MS = 100;
+  function $(id){ return document.getElementById(id); }
+
+  // ---------------- opções (salvas no navegador) ----------------
+  var OPT_KEY = 'cs2hud.director';
+  var opts = { hold: 3, sens: 20, slot: 0, beep: false };
+  try { Object.assign(opts, JSON.parse(localStorage.getItem(OPT_KEY) || '{}')); } catch(e){}
+  $('optHold').value = opts.hold;
+  $('optSens').value = String(opts.sens);
+  $('optSlot').value = String(opts.slot);
+  $('optBeep').checked = !!opts.beep;
+  function saveOpts(){
+    opts.hold = Math.max(0, parseFloat($('optHold').value) || 0);
+    opts.sens = parseInt($('optSens').value, 10) || 20;
+    opts.slot = parseInt($('optSlot').value, 10) || 0;
+    opts.beep = $('optBeep').checked;
+    try { localStorage.setItem(OPT_KEY, JSON.stringify(opts)); } catch(e){}
+  }
+  ['optHold', 'optSens', 'optSlot', 'optBeep'].forEach(function(id){ $(id).addEventListener('change', saveOpts); });
+
+  // bipe curto (o navegador só libera som depois de um clique na página)
+  var audioCtx = null;
+  function beep(){
+    if(!opts.beep) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = 880; g.gain.value = 0.08;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime + 0.12);
+    } catch(e){}
+  }
+
+  // tecla do jogador no modo espectador (observer_slot do GSI)
+  // Teclas calibradas (steamId -> tecla), aprendidas com você no jogo. Sem
+  // calibração, usa o número que o jogo manda (observer_slot).
+  var KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+  var KEYMAP_KEY = 'cs2hud.directorKeys';
+  var keyMap = {};
+  try { keyMap = JSON.parse(localStorage.getItem(KEYMAP_KEY) || '{}') || {}; } catch(e){}
+  function calibrated(){ return Object.keys(keyMap).length > 0; }
+  function keyOf(p){
+    if(calibrated()) return keyMap[p.steamId] || '–';
+    if(typeof p.observerSlot !== 'number' || p.observerSlot < 0) return '–';
+    return String((p.observerSlot + opts.slot) % 10);
+  }
+
+  // ---------------- calibração das teclas ----------------
+  var calib = { on: false, step: 0, startSpec: null, map: {} };
+  var lastSpecId = null, nickOf = {};
+  function calibStart(){
+    calib = { on: true, step: 0, startSpec: lastSpecId, primed: lastSpecId !== null, map: {} };
+    calibShow();
+  }
+  function calibAssign(id){
+    if(!id) return;
+    Object.keys(calib.map).forEach(function(k){ if(calib.map[k] === KEYS[calib.step]) delete calib.map[k]; });
+    calib.map[id] = KEYS[calib.step];
+    calibNext();
+  }
+  function calibNext(){
+    calib.step++;
+    calib.startSpec = lastSpecId;
+    if(calib.step >= KEYS.length){
+      keyMap = calib.map;
+      try { localStorage.setItem(KEYMAP_KEY, JSON.stringify(keyMap)); } catch(e){}
+      calib.on = false;
+    }
+    calibShow();
+  }
+  function calibShow(){
+    $('calib').className = 'calib' + (calib.on ? ' on' : '');
+    $('next').style.display = calib.on ? 'none' : '';
+    var n = Object.keys(keyMap).length;
+    $('keyInfo').textContent = n ? 'Teclas calibradas: ' + n + ' jogadores' : 'Teclas pelo número que o jogo manda (sem calibração)';
+    if(!calib.on) return;
+    var k = KEYS[calib.step];
+    $('calKey').textContent = k;
+    $('calText').textContent = 'Aperte a tecla ' + k + ' no jogo';
+    $('calDone').innerHTML = Object.keys(calib.map).sort(function(a, b){ return KEYS.indexOf(calib.map[a]) - KEYS.indexOf(calib.map[b]); })
+      .map(function(id){ return '<span><b>' + calib.map[id] + '</b>' + esc(nickOf[id] || '?') + '</span>'; }).join('');
+  }
+  // a cada pacote: a câmera mudou de jogador = a tecla pedida leva a ele
+  function calibTick(specId){
+    if(!calib.on) return;
+    if(!calib.primed){ calib.startSpec = specId; calib.primed = true; return; } // ainda não sabia quem estava na câmera
+    if(specId && specId !== calib.startSpec) calibAssign(specId);
+  }
+  $('calStart').addEventListener('click', calibStart);
+  $('calConfirm').addEventListener('click', function(){ calibAssign(lastSpecId); });
+  $('calSkip').addEventListener('click', calibNext);
+  $('calCancel').addEventListener('click', function(){ calib.on = false; calibShow(); });
+  $('calClear').addEventListener('click', function(){
+    keyMap = {};
+    try { localStorage.removeItem(KEYMAP_KEY); } catch(e){}
+    calibShow();
+  });
+
+  // O CS2 manda nomes com caracteres especiais em HTML ("&quot;")
+  function decodeName(n){
+    if(!n || n.indexOf('&') === -1) return n || '';
+    return n.replace(/&#x([0-9a-f]+);/gi, function(m, h){ return String.fromCodePoint(parseInt(h, 16)); })
+      .replace(/&#(\d+);/g, function(m, d){ return String.fromCodePoint(parseInt(d, 10)); })
+      .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  }
+
+  // ---------------- memória por jogador ----------------
+  // O GSI não diz "atirou" nem "levou dano": comparamos um pacote com o
+  // anterior (munição caiu, vida caiu, kills subiram, granada sumiu...).
+  var mem = {};
+  var lastRound = null;
+  function hasPos(v){ return v && !(v.x === 0 && v.y === 0 && v.z === 0); }
+
+  function track(players, now){
+    players.forEach(function(p){
+      var m = mem[p.steamId];
+      if(!m){ m = mem[p.steamId] = { shotAt: 0, hurtAt: 0, killAt: 0, nadeAt: 0, pos: null, fwd: null, posAt: 0 }; }
+      else {
+        if(p.health < m.health && p.health > 0) m.hurtAt = now;
+        if(p.activeWeapon === m.weapon && p.ammoClip < m.ammo) m.shotAt = now;
+        if(p.roundKills > m.kills) m.killAt = now;
+        if((p.utility || []).length < m.nades && p.health > 0) m.nadeAt = now;
+      }
+      m.health = p.health; m.weapon = p.activeWeapon; m.ammo = p.ammoClip;
+      m.kills = p.roundKills; m.nades = (p.utility || []).length;
+      // pacote sem posição: mantém a última por um tempo curto
+      if(hasPos(p.position)){ m.pos = p.position; m.fwd = p.forward || null; m.posAt = now; }
+      else if(now - m.posAt > 1500){ m.pos = null; m.fwd = null; }
+    });
+  }
+
+  // quanto "a" está olhando para "b" (1 = bem na mira; 0 ou menos = de lado/de costas)
+  function facing(a, b){
+    if(!a.fwd || !a.pos || !b.pos) return 0;
+    var dx = b.pos.x - a.pos.x, dy = b.pos.y - a.pos.y;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1;
+    var fl = Math.sqrt(a.fwd.x * a.fwd.x + a.fwd.y * a.fwd.y) || 1;
+    return (dx * a.fwd.x + dy * a.fwd.y) / (len * fl);
+  }
+  function meters(units){ return Math.round(units * 0.0254); } // 1 unidade do CS ≈ 1 polegada
+
+  var NEAR = 1800; // a partir dessa distância (unidades) o inimigo começa a contar
+
+  function scorePlayer(p, alive, state, now){
+    var m = mem[p.steamId] || {};
+    var s = 0, why = [];
+    var enemies = alive.filter(function(e){ return e.team !== p.team; });
+    var mates = alive.filter(function(e){ return e.team === p.team; });
+
+    // inimigo perto: o principal sinal de troca de tiro chegando
+    if(m.pos){
+      var threats = [], closest = null;
+      enemies.forEach(function(e){
+        var em = mem[e.steamId];
+        if(!em || !em.pos) return;
+        var dx = em.pos.x - m.pos.x, dy = em.pos.y - m.pos.y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if(Math.abs(em.pos.z - m.pos.z) > 250) d *= 1.6; // outro andar: menos provável de se verem
+        if(closest === null || d < closest) closest = d;
+        if(d >= NEAR) return;
+        var prox = (NEAR - d) / NEAR;
+        var t = prox * 30;
+        if(facing(m, em) > 0.8) t += prox * 20; // ele mira no inimigo
+        if(facing(em, m) > 0.8) t += prox * 15; // o inimigo mira nele
+        threats.push(t);
+      });
+      threats.sort(function(a, b){ return b - a; });
+      threats.forEach(function(t, i){ s += i === 0 ? t : t * 0.35; });
+      if(closest !== null && closest < NEAR) why.push('inimigo a ' + meters(closest) + 'm');
+    }
+
+    // eventos recentes (perdem força com o tempo)
+    function recent(at, win){ return at && now - at < win ? 1 - (now - at) / win : 0; }
+    var r;
+    if((r = recent(m.shotAt, 2500)) > 0){ s += 35 * r; why.push('atirando'); }
+    if((r = recent(m.hurtAt, 3000)) > 0){ s += 30 * r; why.push('levou dano'); }
+    if((r = recent(m.killAt, 4000)) > 0){ s += 25 * r; why.push('abateu'); }
+    if((r = recent(m.nadeAt, 2000)) > 0){ s += 8 * r; why.push('granada'); }
+    if(p.roundKills >= 3){ s += 10; why.push(p.roundKills + ' kills'); }
+
+    // bomba
+    var bomb = state.bomb || {};
+    var bState = (bomb.state || '').toLowerCase();
+    var bPos = hasPos(bomb.position) ? bomb.position : null;
+    var distBomb = (bPos && m.pos) ? Math.sqrt(Math.pow(bPos.x - m.pos.x, 2) + Math.pow(bPos.y - m.pos.y, 2)) : null;
+    var isT = p.team === 'T';
+    if(bState === 'planting' && isT && distBomb !== null && distBomb < 150){ s += 60; why.push('plantando'); }
+    if(bState === 'defusing' && !isT && distBomb !== null && distBomb < 150){ s += 70; why.push('desarmando'); }
+    if(bState === 'planted' && !isT && distBomb !== null && distBomb < 1200){ s += 15; why.push('indo pro bomb'); }
+    if(bState === 'carried' && (p.utility || []).indexOf('weapon_c4') !== -1){ s += 6; why.push('com a bomba'); }
+
+    // clutch
+    if(mates.length === 1 && enemies.length >= 1){ s += 25; why.push('clutch 1v' + enemies.length); }
+
+    return { score: s, why: why };
+  }
+
+  // ---------------- decisão ----------------
+  var currentId = null, currentSince = 0;
+  var suggestedId = null, suggestedSince = 0;
+  var lastBeepFor = null;
+
+  function decide(ranked, specId, now){
+    if(specId !== currentId){ currentId = specId; currentSince = now; }
+    var best = ranked[0];
+    if(!best) return { id: null };
+    var cur = ranked.filter(function(r){ return r.p.steamId === currentId; })[0];
+    // câmera em jogador morto (ou em ninguém): troca já
+    if(!cur) return { id: best.p.steamId, urgent: true };
+
+    var held = (now - currentSince) / 1000;
+    var bonus = 12; // ficar no jogador atual vale um pouco (evita pular à toa)
+    var want = cur.p.steamId;
+    if(best.p.steamId !== cur.p.steamId && best.score - (cur.score + bonus) >= opts.sens && held >= opts.hold){
+      want = best.p.steamId;
+    }
+    // a sugestão não fica pulando de um jogador pro outro a cada pacote
+    if(suggestedId && want !== suggestedId && suggestedId !== currentId && now - suggestedSince < 1500){
+      var still = ranked.filter(function(r){ return r.p.steamId === suggestedId; })[0];
+      if(still) want = suggestedId;
+    }
+    return { id: want, urgent: false };
+  }
+
+  // ---------------- desenho ----------------
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function sideCls(p){ return p.team === 'CT' ? 'ct' : 'tr'; }
+
+  var lastListHtml = '';
+  function render(state){
+    var now = performance.now();
+    var players = (state.players || []).filter(function(p){ return p.steamId && (p.team === 'CT' || p.team === 'T'); });
+    players.forEach(function(p){ p.nick = decodeName(p.nick); });
+
+    if(state.round !== lastRound){ lastRound = state.round; mem = {}; }
+    track(players, now);
+
+    var phase = (state.roundPhase || '').toLowerCase();
+    var specId = state.spectatedPlayer ? state.spectatedPlayer.steamId : null;
+    players.forEach(function(p){ nickOf[p.steamId] = p.nick; });
+    lastSpecId = specId;
+    calibTick(specId);
+    var alive = players.filter(function(p){ return p.health > 0; });
+    var ranked = alive.map(function(p){
+      var r = scorePlayer(p, alive, state, now);
+      return { p: p, score: r.score, why: r.why };
+    }).sort(function(a, b){ return b.score - a.score; });
+
+    var anyPos = players.some(function(p){ return hasPos(p.position); });
+    var info = '';
+    if(players.length < 2) info = 'Sem dados dos jogadores: espectando a partida (ou pelo GOTV) eles aparecem aqui.';
+    else if(phase === 'freezetime') info = 'Tempo de compra: sem sugestão até o round começar.';
+    else if(phase === 'over') info = 'Fim do round.';
+    else if(!anyPos) info = 'Sem posições dos jogadores: a sugestão usa só tiros, dano e kills.';
+    $('msg').textContent = info;
+    $('msg').style.display = info ? 'block' : 'none';
+
+    var active = players.length >= 2 && phase !== 'freezetime' && phase !== 'over';
+    var d = active ? decide(ranked, specId, now) : { id: null };
+    if(d.id !== suggestedId){ suggestedId = d.id; suggestedSince = now; }
+
+    // destaque
+    var next = $('next');
+    var sug = ranked.filter(function(r){ return r.p.steamId === d.id; })[0];
+    if(sug){
+      var sw = d.id !== specId;
+      var cls = 'next ' + sideCls(sug.p) + (sw ? (d.urgent ? ' urgent' : ' switch') : '');
+      if(next.className !== cls) next.className = cls; // não reinicia a animação à toa
+      $('nextKey').textContent = keyOf(sug.p);
+      $('nextWhat').textContent = sw ? (d.urgent ? 'Troque agora' : 'Troque para') : 'Câmera certa';
+      $('nextNick').textContent = sug.p.nick || '?';
+      // jogador sem tecla no jogo: só dá pra chegar nele clicando (mouse) até a câmera parar nele
+      var noKey = keyOf(sug.p) === '–' ? ['sem tecla: troque clicando com o mouse'] : [];
+      $('nextWhy').innerHTML = noKey.concat(sug.why).map(function(w){ return '<span class="chip">' + esc(w) + '</span>'; }).join('');
+      if(sw && lastBeepFor !== d.id){ lastBeepFor = d.id; beep(); }
+      if(!sw) lastBeepFor = null;
+    } else {
+      next.className = 'next';
+      $('nextKey').textContent = '–';
+      $('nextWhat').textContent = 'Aguardando';
+      $('nextNick').textContent = '—';
+      $('nextWhy').innerHTML = '';
+      lastBeepFor = null;
+    }
+
+    var spec = players.filter(function(p){ return p.steamId === specId; })[0];
+    $('now').innerHTML = 'Câmera agora: <b>' + (spec ? esc(keyOf(spec) + ' · ' + spec.nick) : '—') + '</b>';
+
+    // lista: vivos pela nota, mortos no fim
+    var dead = players.filter(function(p){ return p.health <= 0; });
+    var max = Math.max(60, ranked.length ? ranked[0].score : 0);
+    var html = ranked.map(function(r){ return row(r.p, r.score, r.why, max, specId); })
+      .concat(dead.map(function(p){ return row(p, 0, [], max, specId, true); })).join('');
+    if(html !== lastListHtml){ lastListHtml = html; $('list').innerHTML = html; }
+  }
+
+  function row(p, score, why, max, specId, isDead){
+    var pct = Math.max(0, Math.min(100, score / max * 100));
+    return '<div class="row ' + sideCls(p) + (isDead ? ' dead' : '') + (p.steamId === specId ? ' cur' : '') + '">' +
+      '<div class="k">' + esc(keyOf(p)) + '</div>' +
+      '<div class="n">' + esc(p.nick || '?') + (p.steamId === specId ? '<em>AO VIVO</em>' : '') +
+        (why.length ? '<small>' + esc(why.join(' · ')) + '</small>' : '') + '</div>' +
+      '<div class="bar"><i style="width:' + pct.toFixed(0) + '%"></i></div>' +
+    '</div>';
+  }
+
+  // ---------------- consulta ao exportador ----------------
+  function setStatus(on, text){
+    $('status').className = 'status' + (on ? ' on' : '');
+    $('statusText').textContent = text;
+  }
+  function poll(){
+    fetch(API_BASE + '/api/hud', { cache: 'no-store' }).then(function(res){
+      if(res.status !== 200){ setStatus(true, 'Exportador ok · sem jogo'); return null; }
+      return res.json();
+    }).then(function(state){
+      if(state){ setStatus(true, 'Conectado'); render(state); }
+    }).catch(function(){
+      setStatus(false, 'Exportador desligado');
+    }).then(function(){ setTimeout(poll, POLL_MS); });
+  }
+  calibShow();
+  poll();
+})();
+</script>
+</body>
+</html>

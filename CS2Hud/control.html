@@ -19,6 +19,8 @@
   .wrap{max-width:880px;margin:0 auto}
   header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
   h1{font-family:'Anton',sans-serif;font-weight:400;font-size:32px;letter-spacing:.04em}
+  .navLink{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.1em;color:var(--steel);margin-left:14px;text-decoration:none}
+  .navLink:hover{color:var(--bone)}
   .status{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.08em;color:var(--steel);
     display:flex;align-items:center;gap:8px}
   .status i{width:9px;height:9px;border-radius:50%;background:var(--bad)}
@@ -111,7 +113,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>TIMES DA HUD</h1>
+    <h1>TIMES DA HUD <a class="navLink" href="director.html">diretor de câmeras →</a></h1>
     <div class="status" id="status"><i></i><span id="statusText">Conectando…</span></div>
   </header>
 
