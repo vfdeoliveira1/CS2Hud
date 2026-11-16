@@ -301,6 +301,24 @@ const seriesStore = {
 const CAMS_FILE = path.join(DATA_DIR, 'cams.json');
 // IDs/senha do VDO.Ninja: só letras, números, _ e - (vão na URL)
 function cleanCamId(s){ return str(s).trim().replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 60); }
+// ---- notas (control.html): aparecem na HUD por 10s, na cor do time escolhido ----
+// Só em memória: uma nota antiga não volta se o exportador reiniciar.
+const NOTE_TTL_MS = 12000; // um pouco mais que os 10s da HUD (cobre atraso do poll)
+const notesStore = {
+  note: null, // { id, title, text, side: 'ct'|'t', at }
+  set(data){
+    const title = trimMax(get(data, 'title'), 60), text = trimMax(get(data, 'text'), 240);
+    const side = str(get(data, 'side')).toLowerCase() === 't' ? 't' : 'ct';
+    if (!title && !text) return null;
+    this.note = { id: newId(), title, text, side, at: Date.now() };
+    return this.current();
+  },
+  current(){
+    if (this.note && Date.now() - this.note.at > NOTE_TTL_MS) this.note = null;
+    return this.note ? { id: this.note.id, title: this.note.title, text: this.note.text, side: this.note.side } : null;
+  },
+};
+
 const camsStore = {
   cams: { enabled: false, password: '', ids: {} },
 
@@ -663,6 +681,7 @@ function handle(req, res, body){
     latest.teams = teamsStore.resolve(latest.players, false);
     latest.series = seriesStore.series;
     latest.cams = camsStore.cams;
+    latest.note = notesStore.current();
     return send(res, 200, latest);
   }
 
@@ -685,6 +704,16 @@ function handle(req, res, body){
   if (url === '/api/cams'){
     if (m === 'GET') return send(res, 200, camsStore.cams);
     if (m === 'POST'){ camsStore.set(obj(parseBody(body)) || {}); return send(res, 200, camsStore.cams); }
+  }
+
+  // ---- notas (control.html) ----
+  if (url === '/api/note'){
+    if (m === 'GET') return send(res, 200, notesStore.current());
+    if (m === 'POST'){
+      const n = notesStore.set(obj(parseBody(body)) || {});
+      return n ? send(res, 200, n) : send(res, 400, 'Nota vazia');
+    }
+    if (m === 'DELETE'){ notesStore.note = null; return send(res, 200, {}); }
   }
 
   // ---- série de mapas (CS2MapVeto) ----

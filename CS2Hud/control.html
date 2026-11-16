@@ -106,6 +106,19 @@
   .x1Hint{font-size:16px;color:var(--steel);flex-basis:100%}
   body.x1 .coachField{display:none}
 
+  /* notas na HUD */
+  .notes{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--bone);padding:18px;margin-top:28px}
+  .notes.ct{border-top-color:var(--ct)} .notes.tr{border-top-color:var(--tr)}
+  .notes h2{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:14px}
+  .notes textarea{width:100%;min-height:84px;resize:vertical;background:var(--panel2);border:1px solid var(--line);color:var(--bone);
+    font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:600;padding:8px 12px;margin-bottom:16px;outline:none}
+  .notes textarea:focus{border-color:var(--bone)}
+  .noteTeams{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+  .noteTeams button{font-family:'Barlow Condensed',sans-serif;font-size:20px;letter-spacing:.02em;padding:8px 16px;border-width:2px;min-width:140px}
+  .noteTeams button.ct{color:var(--ct)} .noteTeams button.tr{color:var(--tr)}
+  .noteTeams button.on.ct{background:var(--ct);border-color:var(--ct);color:var(--bg)}
+  .noteTeams button.on.tr{background:var(--tr);border-color:var(--tr);color:var(--bg)}
+  .noteCount{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--steel);float:right;letter-spacing:.06em}
   .help{margin-top:28px;color:var(--steel);font-size:17px;line-height:1.45}
   .help b{color:var(--bone);font-weight:600}
 </style>
@@ -187,6 +200,25 @@
   </div>
   <div class="msg" id="msg"></div>
 
+  <!-- notas: aparecem na HUD por 10s, na cor do time escolhido -->
+  <section class="notes ct" id="notesBox">
+    <h2>Notas na HUD</h2>
+    <label>Sobre qual time</label>
+    <div class="noteTeams">
+      <button type="button" class="ct on" id="noteTeamCt">COUNTER</button>
+      <button type="button" class="tr" id="noteTeamT">TERRORIST</button>
+    </div>
+    <label for="noteTitle" style="margin-top:12px">Título <span class="noteCount" id="noteTitleCount">0/60</span></label>
+    <input type="text" id="noteTitle" maxlength="60" placeholder="ex: começo ruim" autocomplete="off">
+    <label for="noteText">Descrição <span class="noteCount" id="noteTextCount">0/240</span></label>
+    <textarea id="noteText" maxlength="240" placeholder="ex: ZywOo está 0-4 nos duelos de abertura neste mapa"></textarea>
+    <div class="actions" style="margin-top:0">
+      <button class="primary" id="noteSend">Enviar para a HUD</button>
+      <button id="noteHide" title="Tira a nota da tela antes dos 10 segundos">Tirar da tela</button>
+    </div>
+    <div class="msg" id="noteMsg"></div>
+  </section>
+
   <!-- câmeras dos jogadores (VDO.Ninja) -->
   <section class="cams">
     <h2>Câmeras dos jogadores (VDO.Ninja)</h2>
@@ -267,7 +299,19 @@
     renderPreview();
   }
 
+  // nome de cada lado no seletor de time das notas
+  var noteSide = 'ct';
+  function renderNoteTeams(){
+    [['ct', 'noteTeamCt', 'COUNTER'], ['t', 'noteTeamT', 'TERRORIST']].forEach(function(r){
+      var b = $(r[1]);
+      b.textContent = (form[r[0]].name.trim() || (form.x1 && liveNicks[r[0]]) || r[2]) + (r[0] === 'ct' ? ' · CT' : ' · TR');
+      b.classList.toggle('on', noteSide === r[0]);
+    });
+    $('notesBox').className = 'notes ' + (noteSide === 'ct' ? 'ct' : 'tr');
+  }
+
   function renderPreview(){
+    renderNoteTeams();
     [['ct', 'pvCtTag', 'pvCtName', 'CT', 'COUNTER'], ['t', 'pvTrTag', 'pvTrName', 'TR', 'TERRORIST']].forEach(function(r){
       var side = r[0], tag = $(r[1]), cls = side === 'ct' ? 'ct' : 'tr';
       // no X1, sem nome digitado o placar usa o nick do jogo
@@ -521,6 +565,28 @@
       camDirty = false; renderCams();
       setCamMsg(cams.enabled ? 'Salvo! A HUD mostra a câmera do jogador em destaque.' : 'Salvo. Câmeras desligadas na HUD.', 'ok');
     }).catch(function(){ setCamMsg('Não consegui salvar: o CS2HudExporter está rodando? (atualizado com CamsStore.cs?)', 'err'); });
+  });
+
+  // ---- notas ----
+  function setNoteMsg(text, kind){ var el = $('noteMsg'); el.textContent = text || ''; el.className = 'msg' + (kind ? ' ' + kind : ''); }
+  function noteCounts(){
+    $('noteTitleCount').textContent = $('noteTitle').value.length + '/60';
+    $('noteTextCount').textContent = $('noteText').value.length + '/240';
+  }
+  $('noteTitle').addEventListener('input', noteCounts);
+  $('noteText').addEventListener('input', noteCounts);
+  $('noteTeamCt').addEventListener('click', function(){ noteSide = 'ct'; renderNoteTeams(); });
+  $('noteTeamT').addEventListener('click', function(){ noteSide = 't'; renderNoteTeams(); });
+  $('noteSend').addEventListener('click', function(){
+    var title = $('noteTitle').value.trim(), text = $('noteText').value.trim();
+    if(!title && !text){ setNoteMsg('Escreva um título ou uma descrição.', 'err'); return; }
+    request('POST', '/api/note', { title: title, text: text, side: noteSide }).then(function(){
+      setNoteMsg('Enviada! Fica 10 segundos na HUD.', 'ok');
+    }).catch(function(){ setNoteMsg('Não consegui enviar: o exportador está rodando (e atualizado)?', 'err'); });
+  });
+  $('noteHide').addEventListener('click', function(){
+    request('DELETE', '/api/note').then(function(){ setNoteMsg('Nota tirada da tela.', 'ok'); })
+      .catch(function(){ setNoteMsg('Não consegui falar com o exportador.', 'err'); });
   });
 
   renderCams();

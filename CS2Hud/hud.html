@@ -105,10 +105,11 @@
   /* nome centralizado no espaço entre o CT/TR (ou logo) e os quadrados dos mapas */
   .spine-main .lbl{flex:1;text-align:center}
   /* X1: nick do jogador no placar pode ser longo -> até 2 linhas, letra menor */
-  #stage.x1 .spine-main .side.left{padding-left:16px} #stage.x1 .spine-main .side.right{padding-right:16px}
-  #stage.x1 .lbl{line-height:1.05;min-width:0;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  /* (no X1 automático do 1x1 o placar continua com os nomes dos times, igual ao normal) */
+  #stage.x1:not(.x1auto) .spine-main .side.left{padding-left:16px} #stage.x1:not(.x1auto) .spine-main .side.right{padding-right:16px}
+  #stage.x1:not(.x1auto) .lbl{line-height:1.05;min-width:0;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
     overflow:hidden;overflow-wrap:break-word}
-  #stage.x1 .side.right .lbl{text-align:center}
+  #stage.x1:not(.x1auto) .side.right .lbl{text-align:center}
   .midCol{display:flex;align-items:center;justify-content:center;width:100%;height:100%;position:relative}
   .scoreCol{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
   .roundLbl{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
@@ -450,6 +451,57 @@
   .pCoach:empty{visibility:hidden}
 
   /* ---------------- kill feed (canto superior direito) ---------------- */
+  /* ---------------- nota (control.html) ----------------
+     Aparece do lado da tela do time escolhido, na cor dele, por 10s.
+     Entrada: o quadrado do ícone surge, a faixa do título abre a partir
+     dele, um brilho passa pela faixa e a descrição desce. Saída: o inverso. */
+  .note{position:absolute;top:438px;width:400px;display:none;flex-direction:column;pointer-events:none;
+    --team:var(--ct);filter:drop-shadow(0 6px 18px rgba(0,0,0,.45))}
+  .note.left{left:24px} .note.right{right:24px}
+  .note.tr{--team:var(--tr)}
+  .note.show, .note.hide{display:flex}
+  .noteHead{display:flex;height:56px;position:relative}
+  .note.right .noteHead{flex-direction:row-reverse}
+  .noteIcon{flex:none;width:60px;height:56px;background:var(--team);display:flex;align-items:center;justify-content:center;
+    color:#0b0f14;position:relative;z-index:2}
+  .noteIcon svg{width:32px;height:32px;fill:#0b0f14}
+  .noteTitleBar{flex:1;min-width:0;background:var(--bg);display:flex;align-items:center;padding:0 18px;position:relative;overflow:hidden;
+    border-bottom:3px solid var(--team)}
+  .note.right .noteTitleBar{justify-content:flex-end}
+  .noteTitle{font-family:'Anton',sans-serif;font-size:27px;letter-spacing:.03em;text-transform:uppercase;line-height:1;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .noteTitleBar::after{content:'';position:absolute;top:0;bottom:0;width:90px;left:-120px;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);transform:skewX(-20deg)}
+  .noteBody{background:var(--bg-soft);backdrop-filter:blur(5px);padding:16px 20px 18px;font-size:23px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.02em;line-height:1.2;overflow-wrap:break-word;
+    border-left:3px solid var(--team)}
+  .note.right .noteBody{border-left:none;border-right:3px solid var(--team);text-align:right}
+  .noteBody:empty, .note.noText .noteBody{display:none}
+  /* entrada */
+  .note.show .noteIcon{animation:noteIconIn .38s cubic-bezier(.3,1.5,.5,1) both}
+  .note.show .noteTitleBar{animation:noteWipeL .42s cubic-bezier(.2,.8,.2,1) .18s both}
+  .note.right.show .noteTitleBar{animation-name:noteWipeR}
+  .note.show .noteTitle{animation:noteRise .4s ease-out .38s both}
+  .note.show .noteTitleBar::after{animation:noteShine .8s ease-in-out .7s}
+  .note.show .noteBody{animation:noteDrop .42s cubic-bezier(.2,.8,.2,1) .5s both}
+  .note.show .noteBody span{display:block;animation:noteRise .4s ease-out .66s both}
+  .note.show .noteIcon svg{animation:notePulse 1.6s ease-in-out .5s 3}
+  @keyframes noteIconIn{from{transform:scale(0) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
+  @keyframes noteWipeL{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes noteWipeR{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes noteRise{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+  @keyframes noteDrop{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes noteShine{from{left:-120px}to{left:calc(100% + 40px)}}
+  @keyframes notePulse{0%,100%{transform:none}50%{transform:scale(1.15)}}
+  /* saída */
+  .note.hide .noteBody{animation:noteDropOut .3s ease-in both}
+  .note.hide .noteTitleBar{animation:noteWipeOutL .32s ease-in .2s both}
+  .note.right.hide .noteTitleBar{animation-name:noteWipeOutR}
+  .note.hide .noteIcon{animation:noteIconOut .28s ease-in .44s both}
+  @keyframes noteDropOut{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 0 100% 0)}}
+  @keyframes noteWipeOutL{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 100% 0 0)}}
+  @keyframes noteWipeOutR{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 0 0 100%)}}
+  @keyframes noteIconOut{from{transform:none;opacity:1}to{transform:scale(0) rotate(12deg);opacity:0}}
   .killfeed{position:absolute;top:24px;right:24px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;pointer-events:none;
     transition:opacity .3s ease}
   #stage.showSeries .killfeed{opacity:0} /* no tempo de compra o painel da série ocupa esse canto */
@@ -553,6 +605,26 @@
   .x1Card{position:absolute;bottom:24px;width:380px;display:none;flex-direction:column;
     transition:bottom .5s ease}
   .x1Card.left{left:24px} .x1Card.right{right:24px}
+  /* ---- transição do X1 automático (1x1) ---- */
+  /* go: cards dos mortos saem pela lateral (esquerda p/ esquerda, direita p/ direita) */
+  #stage.x1go .roster .card{transition:transform .38s cubic-bezier(.5,0,.75,0), opacity .38s ease-in}
+  #stage.x1go .roster.left .card.dead, #stage.x1go .roster.left .card.empty{transform:translateX(-115%);opacity:0}
+  #stage.x1go .roster.right .card.dead, #stage.x1go .roster.right .card.empty{transform:translateX(115%);opacity:0}
+  #stage.x1go .specFrame{display:none}
+  #stage.x1go .specWrap, #stage.x1go .alive, #stage.x1go .buyInfo, #stage.x1go .camBox{opacity:0;transition:opacity .3s ease}
+  /* down: o card que sobrou desce até o lugar do card do X1 */
+  #stage.x1down .roster .card:not(.dead):not(.empty){transform:translateY(var(--down, 0px));
+    transition:transform .52s cubic-bezier(.4,0,.2,1)}
+  /* on: o card do X1 cresce pra cima a partir do card normal e a câmera sobe por cima */
+  #stage.x1auto .x1Panel{animation:x1PanelIn .28s ease-out both}
+  @keyframes x1PanelIn{from{clip-path:inset(34px 0 0 0)}to{clip-path:inset(0 0 0 0)}}
+  #stage.x1auto .x1Cam.show{animation:x1CamUp .5s cubic-bezier(.2,.8,.2,1) .18s both}
+  @keyframes x1CamUp{from{clip-path:inset(100% 0 0 0);transform:translateY(24px)}to{clip-path:inset(0 0 0 0);transform:none}}
+  /* volta ao normal (fim do round): os cards entram de novo pelas laterais */
+  #stage.x1back .roster.left{animation:rosterInL .45s cubic-bezier(.2,.8,.2,1) both}
+  #stage.x1back .roster.right{animation:rosterInR .45s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes rosterInL{from{transform:translateX(-110%);opacity:0}to{transform:none;opacity:1}}
+  @keyframes rosterInR{from{transform:translateX(110%);opacity:0}to{transform:none;opacity:1}}
   #stage.x1 .x1Card{display:flex}
   /* na pausa as câmeras continuam, logo acima da tela de pausa (o card some) */
   #stage.x1.paused .x1Card{bottom:calc(32px + var(--pauseH, 190px))}
@@ -684,6 +756,14 @@
 
   <div class="camDiag" id="camDiag"></div>
   <div class="killfeed" id="killfeed"></div>
+  <!-- nota do control.html (10s na tela, cor do time) -->
+  <div class="note" id="noteBox">
+    <div class="noteHead">
+      <div class="noteIcon"><svg viewBox="0 0 24 24"><path d="M12 2.5a6.5 6.5 0 0 0-3.9 11.7c.6.5.9 1.1.9 1.8v.5h6v-.5c0-.7.3-1.3.9-1.8A6.5 6.5 0 0 0 12 2.5zM9 18h6v1.2a1.8 1.8 0 0 1-1.8 1.8h-2.4A1.8 1.8 0 0 1 9 19.2z"/><path d="M12 0v1.2M3.4 3.4l.9.9M20.6 3.4l-.9.9M0 10h1.2M22.8 10H24" stroke="currentColor" stroke-width="1.6" fill="none"/></svg></div>
+      <div class="noteTitleBar"><span class="noteTitle" id="noteTitle"></span></div>
+    </div>
+    <div class="noteBody"><span id="noteText"></span></div>
+  </div>
   <div class="seriesPanel" id="seriesPanel"></div>
 
   <!-- modo X1: um card por jogador -->
@@ -949,7 +1029,9 @@
 
   // "Morte grudenta": ver uso em render(). Chave = steamId do jogador.
   var deadThisRound = {};
-  var deathSeenAt = {};      // steamId -> quando a HUD viu a morte (animação do card encolhendo)
+  var deathSeenAt = {};
+  var aliveAgainSince = {}; // steamId -> desde quando um "morto" aparece com vida (ver REVIVE_MS)
+  var REVIVE_MS = 2000;      // steamId -> quando a HUD viu a morte (animação do card encolhendo)
   var CARD_SHRINK_MS = 850; // vermelho + retração (mesma duração do cardDie no CSS)
   var lastDeathResetKey = null; // combinação mapa+round
   var lastRoundPhase = null;
@@ -1642,13 +1724,82 @@
   var currentTeams = { ct: null, tr: null }; // {name, logoUrl} ou null (= padrão)
 
   // Modo X1 (control.html): radar e série podem ser desligados nesse modo
-  var x1Cfg = { on: false, radar: true, series: true };
+  var x1Cfg = { on: false, auto: false, radar: true, series: true };
   var x1Nicks = { ct: '', tr: '' }; // nick do jogador de cada lado (nome no placar no X1)
 
   // nome de um lado: do control.html > nick do jogador (X1) > padrão
   function sideName(side, full){
     var c = currentTeams[side];
-    return (c && c.name) || (x1Cfg.on && x1Nicks[side]) || DEFAULT_TEAM[side][full ? 'full' : 'label'];
+    return (c && c.name) || (x1Cfg.on && !x1Cfg.auto && x1Nicks[side]) || DEFAULT_TEAM[side][full ? 'full' : 'label'];
+  }
+
+  // X1 automático (clutch 1x1): com as câmeras ligadas, quando o round fica
+  // com 1 vivo de cada lado e os dois têm câmera configurada, a HUD vira a do
+  // X1. Fica assim até o round acabar (vitória por morte, bomba ou defuse).
+  // Transição em etapas:
+  //   wait: termina a animação de morte do card (vermelho + retração)
+  //   go:   os cards dos mortos saem pela lateral da tela
+  //   down: o card de quem sobrou desce até o lugar do card do X1
+  //   on:   HUD do X1, com a câmera subindo por cima do card
+  var AUTO_GO_MS = 380, AUTO_DOWN_MS = 520, AUTO_BACK_MS = 700;
+  var autoX1 = { phase: 'off', round: null, at: 0, backUntil: 0, timer: null };
+  // pede um novo render daqui a "ms" (o poll só redesenha quando os dados mudam)
+  function autoX1Wake(ms){
+    clearTimeout(autoX1.timer);
+    autoX1.timer = setTimeout(function(){ lastStateText = null; }, Math.max(16, ms));
+  }
+  function isClutch1v1(state){
+    var ids = state.cams.ids || {};
+    var alive = { CT: [], T: [] };
+    (state.players || []).forEach(function(p){ if(alive[p.team] && p.health > 0) alive[p.team].push(p); });
+    return alive.CT.length === 1 && alive.T.length === 1 &&
+      !!ids[alive.CT[0].steamId] && !!ids[alive.T[0].steamId];
+  }
+  // quanto cada card que sobrou precisa descer pra ficar no lugar do card do X1
+  function autoX1MeasureDown(){
+    var H = $('stage').offsetHeight || 1080;
+    ['rosterCT', 'rosterT'].forEach(function(id){
+      var roster = $(id);
+      var card = roster.querySelector('.card:not(.dead):not(.empty)');
+      var down = card ? (H - 24 - card.offsetHeight) - (roster.offsetTop + card.offsetTop) : 0;
+      roster.style.setProperty('--down', down + 'px');
+    });
+  }
+  function checkAutoX1(state){
+    var cams = state.cams;
+    var phase = (state.roundPhase || '').toLowerCase();
+    var sb = state.scoreboard || { ct: {}, t: {} };
+    var round = (sb.ct.score || 0) + (sb.t.score || 0);
+    var now = performance.now();
+    var want = !!(cams && cams.enabled) && phase === 'live' &&
+      ((autoX1.phase !== 'off' && autoX1.round === round) || isClutch1v1(state));
+    if(!want){
+      if(autoX1.phase === 'on'){ autoX1.backUntil = now + AUTO_BACK_MS; autoX1Wake(AUTO_BACK_MS + 20); }
+      autoX1.phase = 'off'; autoX1.round = null;
+      return false;
+    }
+    if(autoX1.phase === 'off'){
+      // começou agora: a morte que deixou 1x1 ainda vai ser registrada neste render
+      autoX1.phase = 'wait'; autoX1.round = round;
+      autoX1Wake(60);
+      return false;
+    }
+    if(autoX1.phase === 'wait'){
+      var until = 0;
+      Object.keys(deathSeenAt).forEach(function(id){ until = Math.max(until, deathSeenAt[id] + CARD_SHRINK_MS + 80); });
+      if(now < until){ autoX1Wake(until - now); return false; }
+      autoX1.phase = 'go'; autoX1.at = now;
+    }
+    if(autoX1.phase === 'go'){
+      if(now - autoX1.at < AUTO_GO_MS){ autoX1Wake(AUTO_GO_MS - (now - autoX1.at)); return false; }
+      autoX1MeasureDown();
+      autoX1.phase = 'down'; autoX1.at = now;
+    }
+    if(autoX1.phase === 'down'){
+      if(now - autoX1.at < AUTO_DOWN_MS){ autoX1Wake(AUTO_DOWN_MS - (now - autoX1.at)); return false; }
+      autoX1.phase = 'on';
+    }
+    return true;
   }
 
   // =====================================================================
@@ -1721,7 +1872,7 @@
       // nome do painel > nome que o próprio jogo manda (torneios) > padrão
       var gsiName = gsiNames[side];
       if(gsiName === 'CT' || gsiName === 'T') gsiName = ''; // exportador usa isso quando não há nome
-      var name = (cfg && cfg.name) || (x1Cfg.on && x1Nicks[side]) || gsiName || DEFAULT_TEAM[side].label;
+      var name = (cfg && cfg.name) || (x1Cfg.on && !x1Cfg.auto && x1Nicks[side]) || gsiName || DEFAULT_TEAM[side].label;
 
       // quadrados da série - mapas vencidos (da série do veto, pelo nome do
       // time; ou o valor antigo do control.html) - só redesenha se mudou
@@ -1750,7 +1901,7 @@
       var lbl = $(pos + 'Label');
       if(lbl.textContent !== name) lbl.textContent = name;
       // nome longo diminui a letra pra caber (no X1 ainda pode usar 2 linhas)
-      var lblSize = (x1Cfg.on ? nameSize(name, 28, [10, 16], [22, 18]) : nameSize(name, 28, [9, 12], [24, 20])) + 'px';
+      var lblSize = (x1Cfg.on && !x1Cfg.auto ? nameSize(name, 28, [10, 16], [22, 18]) : nameSize(name, 28, [9, 12], [24, 20])) + 'px';
       if(lbl.style.fontSize !== lblSize) lbl.style.fontSize = lblSize;
 
       // logo no lugar do "CT"/"TR" - só mexe no DOM se mudou (senão a
@@ -2131,6 +2282,36 @@
     if(box.className !== cls) box.className = cls; // não reinicia o fade à toa
   }
   var x1Left = null, x1Right = null; // jogador de cada card do X1 (câmeras)
+
+  // =====================================================================
+  // NOTA (control.html): 10s na tela, do lado e na cor do time escolhido
+  // =====================================================================
+  var NOTE_SHOW_MS = 10000, NOTE_OUT_MS = 760;
+  var noteShownId = null, noteTimer = null, noteOutTimer = null;
+  function hideNote(){
+    var box = $('noteBox');
+    clearTimeout(noteTimer);
+    if(!box.classList.contains('show')) return;
+    box.classList.remove('show'); box.classList.add('hide');
+    clearTimeout(noteOutTimer);
+    noteOutTimer = setTimeout(function(){ box.classList.remove('hide'); }, NOTE_OUT_MS);
+  }
+  function renderNote(state){
+    var n = state.note;
+    if(!n){ hideNote(); return; } // tirada da tela pelo painel (ou já expirou)
+    if(n.id === noteShownId) return;
+    noteShownId = n.id;
+    var box = $('noteBox');
+    var side = n.side === 't' ? 'tr' : 'ct';
+    var pos = LAYOUT.left === side ? 'left' : 'right';
+    $('noteTitle').textContent = n.title || '';
+    $('noteText').textContent = n.text || '';
+    clearTimeout(noteTimer); clearTimeout(noteOutTimer);
+    box.className = 'note';
+    void box.offsetWidth; // reinicia as animações se já tinha uma nota na tela
+    box.className = 'note show ' + pos + ' ' + side + (n.text ? '' : ' noText');
+    noteTimer = setTimeout(hideNote, NOTE_SHOW_MS);
+  }
 
   function renderSpectator(player){
     renderCrosshair(player);
@@ -2762,8 +2943,13 @@
     $('scoreCT').className = scoreL >= scoreR ? 'lead' : 'trail';
     $('scoreT').className = scoreR >= scoreL ? 'lead' : 'trail';
     var tcfg = state.teams || {};
-    x1Cfg = { on: !!tcfg.x1, radar: tcfg.x1Radar !== false, series: tcfg.x1Series !== false };
+    var autoOn = !tcfg.x1 && checkAutoX1(state); // 1x1 com câmeras: X1 automático (radar e série como no normal)
+    x1Cfg = { on: !!tcfg.x1 || autoOn, auto: autoOn, radar: autoOn || tcfg.x1Radar !== false, series: autoOn || tcfg.x1Series !== false };
     $('stage').classList.toggle('x1', x1Cfg.on);
+    $('stage').classList.toggle('x1auto', autoOn);
+    $('stage').classList.toggle('x1go', autoX1.phase === 'go' || autoX1.phase === 'down');
+    $('stage').classList.toggle('x1down', autoX1.phase === 'down');
+    $('stage').classList.toggle('x1back', performance.now() < autoX1.backUntil);
     $('stage').classList.toggle('noRadar', x1Cfg.on && !x1Cfg.radar);
     (state.players || []).forEach(function(p){
       if((p.team === 'CT' || p.team === 'T') && p.nick) x1Nicks[sideKey(p.team)] = p.nick;
@@ -2830,10 +3016,15 @@
     var enteredFreezetime = phase === 'freezetime' && lastRoundPhase !== 'freezetime';
     var overToLive = phase === 'live' && lastRoundPhase === 'over';
     var roundWentBack = lastDeathRound !== null && state.round < lastDeathRound;
+    //  5) o round pulou pra frente sem passar pelo freezetime (demo/replay
+    //     adiantado): o número subiu com o round rolando, ou subiu mais de 1
+    var roundJumped = lastDeathRound !== null && state.round > lastDeathRound &&
+      (phase !== 'over' || state.round > lastDeathRound + 1);
     // sem mapa nenhum ainda (pacote parcial logo após abrir): não decide nada
-    if(mapKey && (mapKey !== lastDeathResetKey || roundWentBack || enteredFreezetime || overToLive)){
+    if(mapKey && (mapKey !== lastDeathResetKey || roundWentBack || roundJumped || enteredFreezetime || overToLive)){
       deadThisRound = {};
       deathSeenAt = {};
+      aliveAgainSince = {};
       deathPos = {};
       lastAlivePos = {};
       lastDeathResetKey = mapKey;
@@ -2862,6 +3053,15 @@
       if(phase !== 'warmup' && p.health <= 0){
         if(!deadThisRound[p.steamId]) deathSeenAt[p.steamId] = performance.now(); // morreu agora
         deadThisRound[p.steamId] = true;
+        delete aliveAgainSince[p.steamId];
+      } else if(deadThisRound[p.steamId] && p.health > 0){
+        // marcado como morto mas com vida de verdade por mais de 2s (demo
+        // voltada/adiantada, morte gravada de outro round): está vivo
+        var nowMs = performance.now();
+        if(!aliveAgainSince[p.steamId]) aliveAgainSince[p.steamId] = nowMs;
+        else if(nowMs - aliveAgainSince[p.steamId] > REVIVE_MS){
+          delete deadThisRound[p.steamId]; delete deathPos[p.steamId]; delete deathSeenAt[p.steamId]; delete aliveAgainSince[p.steamId];
+        }
       }
       p.isDead = !!deadThisRound[p.steamId];
 
@@ -2917,6 +3117,7 @@
     renderAlive(state, ctPlayers, tPlayers);
     renderBuyInfo(state, ctPlayers, tPlayers);
     renderPause(state, ctPlayers, tPlayers);
+    renderNote(state);
   }
 
   // =====================================================================
@@ -2957,7 +3158,7 @@
     defuseTracker = { active: false, startedAt: 0, total: 0, endAt: 0 };
 
     // morte persistente
-    lastDeathResetKey = null; lastDeathRound = null; deadThisRound = {}; deathSeenAt = {}; deathPos = {}; lastAlivePos = {};
+    lastDeathResetKey = null; lastDeathRound = null; deadThisRound = {}; deathSeenAt = {}; aliveAgainSince = {}; deathPos = {}; lastAlivePos = {};
     lastGoodMap = null; lastGoodRound = null; deathsRestored = false;
     clearUtility();
     lastPlayerData = {};
